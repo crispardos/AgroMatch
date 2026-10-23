@@ -1,3 +1,29 @@
 <resources>
     <string name="app_name">AgroMatch</string>
+    <string name="login_title">Iniciar sesión</string>
+    <string name="register_title">Crear cuenta</string>
+    <string name="alias_label">Alias</string>
+    <string name="password_label">Contraseña</string>
+    <string name="confirm_password_label">Confirmar contraseña</string>
+    <string name="role_label">¿Cómo usarás AgroMatch?</string>
+    <string name="farmer_role">Soy agricultor</string>
+    <string name="pilot_role">Soy piloto de dron</string>
+    <string name="login_action">Ingresar</string>
+    <string name="register_action">Crear cuenta</string>
+    <string name="go_to_register">¿No tienes cuenta? Regístrate</string>
+    <string name="go_to_login">Ya tengo una cuenta</string>
+    <string name="logout_action">Cerrar sesión</string>
+    <string name="welcome_alias">Hola, %1$s</string>
+    <string name="role_farmer_home">Espacio del agricultor</string>
+    <string name="role_pilot_home">Espacio del piloto</string>
+    <string name="role_admin_home">Administrador de demostración</string>
+    <string name="home_placeholder">Este espacio se completará en la siguiente parte del desarrollo.</string>
+    <string name="admin_demo_credentials">Administrador demo: admin-demo / AgroDemo2026!</string>
+    <string name="auth_error_invalid_fields">Revisa los datos ingresados.</string>
+    <string name="auth_error_alias_taken">Ese alias ya está registrado.</string>
+    <string name="auth_error_invalid_credentials">Alias o contraseña incorrectos.</string>
+    <string name="auth_error_storage">No se pudo guardar la cuenta. Inténtalo nuevamente.</string>
+    <string name="password_policy">Usa al menos 8 caracteres, con mayúscula, minúscula y número.</string>
+    <string name="show_password">Mostrar contraseña</string>
+    <string name="hide_password">Ocultar contraseña</string>
 </resources>
