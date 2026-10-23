@@ -4,44 +4,28 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.ViewModelProvider
+import cl.duoc.agromatch.repository.AgroMatchContainer
+import cl.duoc.agromatch.ui.AgroMatchApp
 import cl.duoc.agromatch.ui.theme.AgroMatchTheme
+import cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory
+import cl.duoc.agromatch.viewmodel.AuthViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val container = AgroMatchContainer(applicationContext)
+        val authViewModel = ViewModelProvider(
+            this,
+            AgroMatchViewModelFactory(container.authRepository)
+        )[AuthViewModel::class.java]
+
         setContent {
             AgroMatchTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
+                AgroMatchApp(authViewModel)
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    AgroMatchTheme {
-        Greeting("Android")
     }
 }
