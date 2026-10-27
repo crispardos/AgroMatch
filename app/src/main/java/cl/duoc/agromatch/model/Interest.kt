@@ -34,8 +34,6 @@ enum class InterestStatus(val value: String) {
     indices = [
         Index("needId"),
         Index("pilotId"),
-        // Un piloto no puede tener dos intereses sobre la misma necesidad,
-        // ni siquiera históricos. Es una regla de negocio del MVP.
         Index(value = ["needId", "pilotId"], unique = true)
     ]
 )

@@ -88,13 +88,20 @@ class FarmerViewModel(
 
     fun completeService() {
         val interestId = mutableState.value.activeInterest?.id ?: return
+        val needId = mutableState.value.currentNeed?.id ?: return
         viewModelScope.launch {
             mutableState.value = mutableState.value.copy(isLoading = true, error = null)
             try {
                 val currentEpochDay = System.currentTimeMillis() / 86_400_000L
                 repository.completeInterest(interestId, currentEpochDay)
-                loadActiveInterest(mutableState.value.currentNeed?.id ?: return@launch)
-                mutableState.value = mutableState.value.copy(isLoading = false)
+                val updatedInterest = repository.getActiveInterest(needId)
+                mutableState.value = mutableState.value.copy(
+                    isLoading = false,
+                    activeInterest = mutableState.value.activeInterest?.copy(
+                        status = InterestStatus.COMPLETED.value,
+                        completedEpochDay = currentEpochDay
+                    )
+                )
             } catch (e: Exception) {
                 mutableState.value = mutableState.value.copy(isLoading = false, error = "Error al finalizar servicio")
             }
@@ -122,6 +129,19 @@ class FarmerViewModel(
         }
     }
 
+    fun setActiveInterestId(interestId: Long) {
+        if (mutableState.value.activeInterest?.id != interestId) {
+            mutableState.value = mutableState.value.copy(
+                activeInterest = Interest(
+                    id = interestId,
+                    needId = 0L,
+                    pilotId = 0L,
+                    status = InterestStatus.COMPLETED.value,
+                    createdEpochDay = 0L
+                )
+            )
+        }
+    }
     fun clearError() {
         mutableState.value = mutableState.value.copy(error = null)
     }

@@ -4,15 +4,21 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import cl.duoc.agromatch.model.Interest
+import cl.duoc.agromatch.model.Need
+import cl.duoc.agromatch.model.Rating
 import cl.duoc.agromatch.model.User
 
 @Database(
-    entities = [User::class],
-    version = 1,
+    entities = [User::class, Need::class, Interest::class, Rating::class],
+    version = 2,
     exportSchema = true
 )
 abstract class AgroMatchDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
+    abstract fun needDao(): NeedDao
+    abstract fun interestDao(): InterestDao
+    abstract fun ratingDao(): RatingDao
 
     companion object {
         private const val DATABASE_NAME = "agromatch.db"
