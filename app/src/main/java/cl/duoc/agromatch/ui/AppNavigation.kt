@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -28,10 +29,14 @@ import cl.duoc.agromatch.model.User
 import cl.duoc.agromatch.model.UserRole
 import cl.duoc.agromatch.ui.auth.LoginScreen
 import cl.duoc.agromatch.ui.auth.RegisterScreen
+import cl.duoc.agromatch.ui.pilot.PilotHomeScreen
+import cl.duoc.agromatch.ui.pilot.PilotProfileScreen
+import cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory
 import cl.duoc.agromatch.viewmodel.AuthViewModel
+import cl.duoc.agromatch.viewmodel.PilotViewModel
 
 @Composable
-fun AgroMatchApp(authViewModel: AuthViewModel) {
+fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactory) {
     val state by authViewModel.state.collectAsStateWithLifecycle()
     if (state.isCheckingSession) {
         LoadingScreen()
@@ -45,15 +50,9 @@ fun AgroMatchApp(authViewModel: AuthViewModel) {
         val destination = state.user?.let(::homeRoute) ?: LOGIN_ROUTE
         val currentRoute = navController.currentDestination?.route ?: return@LaunchedEffect
         if (currentRoute != destination) {
-            val routeToPop = if (state.user != null) {
-                LOGIN_ROUTE
-            } else {
-                currentRoute
-            }
             navController.navigate(destination) {
-                routeToPop?.let { route ->
-                    popUpTo(route) { inclusive = true }
-                }
+                // No conservar pantallas ni ViewModels de la sesión anterior.
+                popUpTo(navController.graph.id) { inclusive = true }
                 launchSingleTop = true
             }
         }
@@ -86,7 +85,42 @@ fun AgroMatchApp(authViewModel: AuthViewModel) {
             state.user?.let { user -> RoleHomeScreen(user, authViewModel::logout) }
         }
         composable(PILOT_HOME_ROUTE) {
-            state.user?.let { user -> RoleHomeScreen(user, authViewModel::logout) }
+            state.user?.takeIf { it.role == UserRole.PILOT.value }?.let { user ->
+                val pilotViewModel: PilotViewModel = viewModel(factory = factory)
+                val pilotState by pilotViewModel.state.collectAsStateWithLifecycle()
+                PilotHomeScreen(
+                    alias = user.alias,
+                    state = pilotState,
+                    onEditProfile = {
+                        pilotViewModel.clearFeedback()
+                        authViewModel.clearError()
+                        navController.navigate(PILOT_PROFILE_ROUTE)
+                    },
+                    onRetry = pilotViewModel::loadProfile,
+                    onLogout = authViewModel::logout
+                )
+            }
+        }
+        composable(PILOT_PROFILE_ROUTE) { entry ->
+            if (state.user?.role == UserRole.PILOT.value) {
+                // Compartir el ViewModel del inicio conserva el borrador al volver.
+                val homeEntry = remember(entry) { navController.getBackStackEntry(PILOT_HOME_ROUTE) }
+                val pilotViewModel: PilotViewModel = viewModel(homeEntry, factory = factory)
+                val pilotState by pilotViewModel.state.collectAsStateWithLifecycle()
+                PilotProfileScreen(
+                    state = pilotState,
+                    authState = state,
+                    onUpdateAlias = authViewModel::updateAlias,
+                    onClearAliasFeedback = authViewModel::clearError,
+                    onExperienceChange = pilotViewModel::updateExperience,
+                    onHectaresChange = pilotViewModel::updateHectares,
+                    onWorkingHoursChange = pilotViewModel::updateWorkingHours,
+                    onToggleZone = pilotViewModel::toggleZone,
+                    onToggleSpecialty = pilotViewModel::toggleSpecialty,
+                    onSave = pilotViewModel::saveProfile,
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
         composable(ADMIN_HOME_ROUTE) {
             state.user?.let { user -> RoleHomeScreen(user, authViewModel::logout) }
@@ -145,4 +179,5 @@ private const val LOGIN_ROUTE = "login"
 private const val REGISTER_ROUTE = "register"
 private const val FARMER_HOME_ROUTE = "farmer-home"
 private const val PILOT_HOME_ROUTE = "pilot-home"
+private const val PILOT_PROFILE_ROUTE = "pilot-profile"
 private const val ADMIN_HOME_ROUTE = "admin-home"

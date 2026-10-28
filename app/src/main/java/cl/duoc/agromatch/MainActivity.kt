@@ -17,14 +17,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val container = AgroMatchContainer(applicationContext)
+        val factory = AgroMatchViewModelFactory(container.authRepository, container.pilotRepository)
         val authViewModel = ViewModelProvider(
             this,
-            AgroMatchViewModelFactory(container.authRepository)
+            factory
         )[AuthViewModel::class.java]
 
         setContent {
             AgroMatchTheme {
-                AgroMatchApp(authViewModel)
+                AgroMatchApp(authViewModel, factory)
             }
         }
     }
