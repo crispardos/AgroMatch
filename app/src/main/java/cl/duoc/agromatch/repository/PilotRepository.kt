@@ -3,9 +3,11 @@ package cl.duoc.agromatch.repository
 import androidx.room.withTransaction
 import cl.duoc.agromatch.database.AgroMatchDatabase
 import cl.duoc.agromatch.database.PilotCoverageDao
+import cl.duoc.agromatch.database.PilotDirectoryEntry
 import cl.duoc.agromatch.database.PilotProfileDao
 import cl.duoc.agromatch.database.PilotSpecialtyDao
 import cl.duoc.agromatch.database.UserDao
+import cl.duoc.agromatch.model.Catalog
 import cl.duoc.agromatch.model.PilotCoverage
 import cl.duoc.agromatch.model.PilotProfile
 import cl.duoc.agromatch.model.PilotSpecialty
@@ -27,6 +29,7 @@ enum class PilotFailure {
     INVALID_PROFILE,
     USER_NOT_FOUND,
     USER_NOT_PILOT,
+    SESSION_REQUIRED,
     STORAGE_ERROR
 }
 
@@ -35,8 +38,18 @@ class PilotRepository(
     private val userDao: UserDao,
     private val pilotProfileDao: PilotProfileDao,
     private val pilotCoverageDao: PilotCoverageDao,
-    private val pilotSpecialtyDao: PilotSpecialtyDao
+    private val pilotSpecialtyDao: PilotSpecialtyDao,
+    private val authRepository: AuthRepository
 ) {
+    fun observeDirectory(): Flow<List<PilotDirectoryEntry>> =
+        pilotProfileDao.observeDirectory()
+
+    fun observeAllCoverages(): Flow<List<PilotCoverage>> =
+        pilotCoverageDao.observeAll()
+
+    fun observeAllSpecialties(): Flow<List<PilotSpecialty>> =
+        pilotSpecialtyDao.observeAll()
+
     fun observeProfile(userId: Long): Flow<PilotProfile?> =
         pilotProfileDao.observeByUserId(userId)
 
@@ -56,6 +69,10 @@ class PilotRepository(
         }
 
         return try {
+            val currentUser = authRepository.restoreSession()
+            if (currentUser == null || currentUser.id != profile.userId) {
+                return PilotSaveResult.Failure(PilotFailure.SESSION_REQUIRED)
+            }
             database.withTransaction {
                 val user = userDao.findById(profile.userId)
                     ?: return@withTransaction PilotSaveResult.Failure(PilotFailure.USER_NOT_FOUND)
@@ -89,7 +106,8 @@ class PilotRepository(
         coverages: List<PilotCoverage>,
         specialties: List<PilotSpecialty>
     ): Boolean =
-        profile.serviceCode == FUMIGATION_SERVICE_CODE &&
+        profile.serviceCode == Catalog.ServiceType.FUMIGATION &&
+            (profile.experienceYears == null || profile.experienceYears >= 0) &&
             profile.hectaresPerHour.isFinite() && profile.hectaresPerHour > 0.0 &&
             profile.workingHoursPerDay.isFinite() && profile.workingHoursPerDay > 0.0 &&
             isValidAvailability(profile.availableFrom, profile.availableTo) &&
@@ -119,7 +137,6 @@ class PilotRepository(
     }
 
     private companion object {
-        const val FUMIGATION_SERVICE_CODE = "FUMIGACION"
         const val ISO_DATE_PATTERN = "yyyy-MM-dd"
         const val UTC_TIME_ZONE = "UTC"
     }

@@ -12,6 +12,9 @@ interface PilotSpecialtyDao {
     @Query("SELECT * FROM pilot_specialties WHERE pilotId = :pilotId")
     fun observeByPilotId(pilotId: Long): Flow<List<PilotSpecialty>>
 
+    @Query("SELECT * FROM pilot_specialties ORDER BY pilotId, specialtyCode")
+    fun observeAll(): Flow<List<PilotSpecialty>>
+
     @Query("DELETE FROM pilot_specialties WHERE pilotId = :pilotId")
     suspend fun deleteByPilotId(pilotId: Long)
 

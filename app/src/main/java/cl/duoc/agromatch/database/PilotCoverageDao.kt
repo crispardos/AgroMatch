@@ -12,6 +12,9 @@ interface PilotCoverageDao {
     @Query("SELECT * FROM pilot_coverages WHERE pilotId = :pilotId")
     fun observeByPilotId(pilotId: Long): Flow<List<PilotCoverage>>
 
+    @Query("SELECT * FROM pilot_coverages ORDER BY pilotId, zoneCode")
+    fun observeAll(): Flow<List<PilotCoverage>>
+
     @Query("DELETE FROM pilot_coverages WHERE pilotId = :pilotId")
     suspend fun deleteByPilotId(pilotId: Long)
 
