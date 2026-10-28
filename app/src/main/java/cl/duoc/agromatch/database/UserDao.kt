@@ -14,6 +14,9 @@ interface UserDao {
     @Query("SELECT * FROM users WHERE id = :userId LIMIT 1")
     suspend fun findById(userId: Long): User?
 
+    @Query("UPDATE users SET alias = :alias, aliasKey = :aliasKey WHERE id = :userId")
+    suspend fun updateAlias(userId: Long, alias: String, aliasKey: String): Int
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(user: User): Long
 }
