@@ -85,8 +85,9 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
             )
         }
         composable(FARMER_HOME_ROUTE) {
-            state.user?.let {
-                val farmerViewModel: FarmerViewModel = viewModel(factory = factory)
+            state.user?.let { user ->
+                val farmerFactory = remember(user.id) { factory.forFarmer(user.id) }
+                val farmerViewModel: FarmerViewModel = viewModel(factory = farmerFactory)
 
                 cl.duoc.agromatch.ui.farmer.FarmerHomeScreen(
                     viewModel = farmerViewModel,
@@ -100,7 +101,8 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
         }
         composable(NEED_FORM_ROUTE) {
             state.user?.let { user ->
-                val farmerViewModel: FarmerViewModel = viewModel(factory = factory)
+                val farmerFactory = remember(user.id) { factory.forFarmer(user.id) }
+                val farmerViewModel: FarmerViewModel = viewModel(factory = farmerFactory)
 
                 cl.duoc.agromatch.ui.farmer.NeedFormScreen(
                     farmerId = user.id,
@@ -120,8 +122,9 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
         ) { backStackEntry ->
             val needId = backStackEntry.arguments?.getLong("needId") ?: 0L
 
-            state.user?.let {
-                val farmerViewModel: FarmerViewModel = viewModel(factory = factory)
+            state.user?.let { user ->
+                val farmerFactory = remember(user.id) { factory.forFarmer(user.id) }
+                val farmerViewModel: FarmerViewModel = viewModel(factory = farmerFactory)
 
                 val need = farmerViewModel.state.collectAsState().value.needs.find { it.id == needId }
 
@@ -149,8 +152,9 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
             val interestId = backStackEntry.arguments?.getLong("interestId") ?: 0L
             val pilotAlias = backStackEntry.arguments?.getString("pilotAlias") ?: "el piloto"
 
-            state.user?.let {
-                val farmerViewModel: FarmerViewModel = viewModel(factory = factory)
+            state.user?.let { user ->
+                val farmerFactory = remember(user.id) { factory.forFarmer(user.id) }
+                val farmerViewModel: FarmerViewModel = viewModel(factory = farmerFactory)
                 LaunchedEffect(interestId) {
                     farmerViewModel.setActiveInterestId(interestId)
                 }
