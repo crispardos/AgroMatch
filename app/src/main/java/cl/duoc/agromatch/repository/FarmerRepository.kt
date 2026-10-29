@@ -2,6 +2,9 @@ package cl.duoc.agromatch.repository
 
 import cl.duoc.agromatch.database.InterestDao
 import cl.duoc.agromatch.database.NeedDao
+import cl.duoc.agromatch.database.PilotCoverageDao
+import cl.duoc.agromatch.database.PilotProfileDao
+import cl.duoc.agromatch.database.PilotSpecialtyDao
 import cl.duoc.agromatch.database.RatingDao
 import cl.duoc.agromatch.model.*
 import kotlinx.coroutines.flow.Flow
@@ -9,7 +12,10 @@ import kotlinx.coroutines.flow.Flow
 class FarmerRepository(
     private val needDao: NeedDao,
     private val interestDao: InterestDao,
-    private val ratingDao: RatingDao
+    private val ratingDao: RatingDao,
+    private val pilotProfileDao: PilotProfileDao,
+    private val pilotCoverageDao: PilotCoverageDao,
+    private val pilotSpecialtyDao: PilotSpecialtyDao
 ) {
 
     // --- NECESIDADES ---
@@ -115,5 +121,34 @@ class FarmerRepository(
         val avg = ratingDao.getAverageScoreForPilot(pilotId)
         val count = ratingDao.getRatingCountForPilot(pilotId)
         return Pair(avg, count)
+    }
+    // --- PILOTOS REALES ---
+
+    suspend fun getAllPilotsForMatching(): List<PilotSnapshot> {
+        val profiles = pilotProfileDao.getDirectorySnapshot()
+        val coverages = pilotCoverageDao.getAllCoverages()
+        val specialties = pilotSpecialtyDao.getAllSpecialties()
+        val ratingsSummary = ratingDao.getRatingsSummaryByPilot()
+        val coverageMap = coverages.groupBy { it.pilotId }
+        val specialtyMap = specialties.groupBy { it.pilotId }
+        val ratingMap = ratingsSummary.associateBy { it.pilotId }
+
+        return profiles.map { entry ->
+            val profile = entry.profile
+            val ratings = ratingMap[profile.userId]
+
+            object : PilotSnapshot {
+                override val pilotId = profile.userId
+                override val alias = entry.alias
+                override val hectaresPerHour = profile.hectaresPerHour
+                override val workingHoursPerDay = profile.workingHoursPerDay
+                override val zones = coverageMap[profile.userId]?.map { it.zoneCode }?.toSet() ?: emptySet()
+                override val specialties = specialtyMap[profile.userId]?.map { it.specialtyCode }?.toSet() ?: emptySet()
+                override val avgRating = ratings?.avgScore
+                override val ratingCount = ratings?.count ?: 0
+                override val availableStartDay = 0L
+                override val availableEndDay = Long.MAX_VALUE
+            }
+        }
     }
 }

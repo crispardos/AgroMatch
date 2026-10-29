@@ -56,14 +56,24 @@ class FarmerViewModel(
         }
     }
 
-    fun selectNeedForMatching(need: Need, pilots: List<PilotSnapshot>) {
-        val results = repository.calculateMatches(need, pilots)
-        mutableState.value = mutableState.value.copy(
-            currentNeed = need,
-            matchResults = results,
-            filteredResults = results
-        )
-        loadActiveInterest(need.id)
+    fun selectNeedForMatching(need: Need) {
+        viewModelScope.launch {
+            mutableState.value = mutableState.value.copy(isLoading = true, error = null)
+            try {
+                val pilots = repository.getAllPilotsForMatching()
+                val results = repository.calculateMatches(need, pilots)
+
+                mutableState.value = mutableState.value.copy(
+                    currentNeed = need,
+                    matchResults = results,
+                    filteredResults = results,
+                    isLoading = false
+                )
+                loadActiveInterest(need.id)
+            } catch (e: Exception) {
+                mutableState.value = mutableState.value.copy(isLoading = false, error = "Error al buscar pilotos: ${e.message}")
+            }
+        }
     }
 
     fun applyFilters(zone: String?, specialty: String?) {

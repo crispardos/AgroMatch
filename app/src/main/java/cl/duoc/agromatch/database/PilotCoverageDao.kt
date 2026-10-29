@@ -20,4 +20,7 @@ interface PilotCoverageDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertAll(coverages: List<PilotCoverage>)
+
+    @Query("SELECT * FROM pilot_coverages")
+    suspend fun getAllCoverages(): List<PilotCoverage>
 }

@@ -26,6 +26,14 @@ interface PilotProfileDao {
     """)
     fun observeDirectory(): Flow<List<PilotDirectoryEntry>>
 
+    @Query("""
+        SELECT pilot_profiles.*, users.alias
+        FROM pilot_profiles
+        INNER JOIN users ON users.id = pilot_profiles.userId
+        WHERE users.role = 'PILOT'
+        ORDER BY users.aliasKey
+    """)
+    suspend fun getDirectorySnapshot(): List<PilotDirectoryEntry>
     @Upsert
     suspend fun upsert(profile: PilotProfile)
 }

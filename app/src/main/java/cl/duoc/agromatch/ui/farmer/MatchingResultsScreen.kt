@@ -33,49 +33,8 @@ fun MatchingResultsScreen(
         }
     }
 
-    val dummyPilots = remember {
-        listOf(
-            object : PilotSnapshot {
-                override val pilotId = 2L
-                override val alias = "Juan el Dronero"
-                override val hectaresPerHour = 5.0
-                override val workingHoursPerDay = 6.0
-                override val zones = setOf(Catalog.Zone.COLCHAGUA, Catalog.Zone.CURICO)
-                override val specialties = setOf(Catalog.Crop.VINEYARD, Catalog.Crop.AVOCADO)
-                override val avgRating = 4.8
-                override val ratingCount = 15
-                override val availableStartDay = need.startEpochDay - 1
-                override val availableEndDay = need.endEpochDay + 5
-            },
-            object : PilotSnapshot {
-                override val pilotId = 3L
-                override val alias = "Maria Agricola"
-                override val hectaresPerHour = 2.0
-                override val workingHoursPerDay = 8.0
-                override val zones = setOf(Catalog.Zone.MAULE)
-                override val specialties = setOf(Catalog.Crop.CORN)
-                override val avgRating = 4.9
-                override val ratingCount = 20
-                override val availableStartDay = need.startEpochDay
-                override val availableEndDay = need.endEpochDay
-            },
-            object : PilotSnapshot {
-                override val pilotId = 4L
-                override val alias = "Pedro Vuela Alto"
-                override val hectaresPerHour = 1.5
-                override val workingHoursPerDay = 4.0
-                override val zones = setOf(Catalog.Zone.COLCHAGUA)
-                override val specialties = setOf(Catalog.Crop.VINEYARD)
-                override val avgRating = null
-                override val ratingCount = 0
-                override val availableStartDay = need.startEpochDay
-                override val availableEndDay = need.endEpochDay
-            }
-        )
-    }
-
     LaunchedEffect(need.id) {
-        viewModel.selectNeedForMatching(need, dummyPilots)
+        viewModel.selectNeedForMatching(need)
     }
 
     var filterZone by remember { mutableStateOf<String?>(null) }

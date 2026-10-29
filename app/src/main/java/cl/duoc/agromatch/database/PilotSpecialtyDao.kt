@@ -18,6 +18,9 @@ interface PilotSpecialtyDao {
     @Query("DELETE FROM pilot_specialties WHERE pilotId = :pilotId")
     suspend fun deleteByPilotId(pilotId: Long)
 
+    @Query("SELECT * FROM pilot_specialties")
+    suspend fun getAllSpecialties(): List<PilotSpecialty>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertAll(specialties: List<PilotSpecialty>)
 }

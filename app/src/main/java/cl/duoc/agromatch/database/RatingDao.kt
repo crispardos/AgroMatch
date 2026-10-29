@@ -5,6 +5,11 @@ import androidx.room.Insert
 import androidx.room.Query
 import cl.duoc.agromatch.model.Rating
 
+data class PilotRatingSummary(
+    val pilotId: Long,
+    val avgScore: Double?,
+    val count: Int
+)
 @Dao
 interface RatingDao {
 
@@ -33,4 +38,12 @@ interface RatingDao {
         WHERE i.pilotId = :pilotId
     """)
     suspend fun getRatingCountForPilot(pilotId: Long): Int
+
+    @Query("""
+        SELECT i.pilotId, AVG(r.score) as avgScore, COUNT(r.id) as count
+        FROM ratings r
+        INNER JOIN interests i ON r.interestId = i.id
+        GROUP BY i.pilotId
+    """)
+    suspend fun getRatingsSummaryByPilot(): List<PilotRatingSummary>
 }
