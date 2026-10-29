@@ -10,4 +10,9 @@ class AgroMatchContainer(context: Context) {
         context = context.applicationContext,
         userDao = database.userDao()
     )
+    val farmerRepository = FarmerRepository(
+        needDao = database.needDao(),
+        interestDao = database.interestDao(),
+        ratingDao = database.ratingDao()
+    )
 }
