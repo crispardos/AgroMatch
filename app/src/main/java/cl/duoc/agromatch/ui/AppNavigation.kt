@@ -1,5 +1,6 @@
 package cl.duoc.agromatch.ui
 
+import android.R.attr.type
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,7 +84,110 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
             )
         }
         composable(FARMER_HOME_ROUTE) {
-            state.user?.let { user -> RoleHomeScreen(user, authViewModel::logout) }
+            state.user?.let { user -> val farmerViewModel: cl.duoc.agromatch.viewmodel.FarmerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                factory = cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory(
+                    authRepository = cl.duoc.agromatch.repository.AgroMatchContainer(androidx.compose.ui.platform.LocalContext.current).authRepository,
+                    farmerRepository = cl.duoc.agromatch.repository.AgroMatchContainer(androidx.compose.ui.platform.LocalContext.current).farmerRepository
+                )
+            )
+
+                cl.duoc.agromatch.ui.farmer.FarmerHomeScreen(
+                    viewModel = farmerViewModel,
+                    onNavigateToCreateNeed = { navController.navigate(NEED_FORM_ROUTE) },
+                    onNavigateToMatching = { need ->
+                        navController.navigate("$MATCHING_ROUTE/${need.id}")
+                    },
+                    onLogout = authViewModel::logout
+                )
+            }
+        }
+        composable(NEED_FORM_ROUTE) {
+            state.user?.let { user ->
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val container = remember { cl.duoc.agromatch.repository.AgroMatchContainer(context) }
+                val farmerViewModel: cl.duoc.agromatch.viewmodel.FarmerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    factory = cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory(
+                        authRepository = container.authRepository,
+                        farmerRepository = container.farmerRepository
+                    )
+                )
+
+                cl.duoc.agromatch.ui.farmer.NeedFormScreen(
+                    farmerId = user.id,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSave = { need ->
+                        farmerViewModel.createNeed(need)
+                        navController.popBackStack()
+                    }
+                )
+            }
+        }
+        composable(
+            route = "$MATCHING_ROUTE/{needId}",
+            arguments = listOf(
+                androidx.navigation.navArgument("needId") { type = androidx.navigation.NavType.LongType }
+            )
+        ) { backStackEntry ->
+            val needId = backStackEntry.arguments?.getLong("needId") ?: 0L
+
+            state.user?.let { user ->
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val container = remember { cl.duoc.agromatch.repository.AgroMatchContainer(context) }
+                val farmerViewModel: cl.duoc.agromatch.viewmodel.FarmerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    factory = cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory(
+                        authRepository = container.authRepository,
+                        farmerRepository = container.farmerRepository
+                    )
+                )
+
+                val need = farmerViewModel.state.collectAsState().value.needs.find { it.id == needId }
+
+                if (need != null) {
+                    cl.duoc.agromatch.ui.farmer.MatchingResultsScreen(
+                        viewModel = farmerViewModel,
+                        need = need,
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToRating = { interestId, pilotAlias ->
+                            navController.navigate("rating/$interestId/$pilotAlias")
+                        }
+                    )
+                } else {
+                    Text("Cargando necesidad...")
+                }
+            }
+        }
+        composable(
+            route = RATING_ROUTE,
+            arguments = listOf(
+                androidx.navigation.navArgument("interestId") { type = androidx.navigation.NavType.LongType },
+                androidx.navigation.navArgument("pilotAlias") { type = androidx.navigation.NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val interestId = backStackEntry.arguments?.getLong("interestId") ?: 0L
+            val pilotAlias = backStackEntry.arguments?.getString("pilotAlias") ?: "el piloto"
+
+            state.user?.let { user ->
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val container = remember { cl.duoc.agromatch.repository.AgroMatchContainer(context) }
+                val farmerViewModel: cl.duoc.agromatch.viewmodel.FarmerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    factory = cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory(
+                        authRepository = container.authRepository,
+                        farmerRepository = container.farmerRepository
+                    )
+                )
+                LaunchedEffect(interestId) {
+                    farmerViewModel.setActiveInterestId(interestId)
+                }
+
+                cl.duoc.agromatch.ui.farmer.RatingScreen(
+                    viewModel = farmerViewModel,
+                    pilotAlias = pilotAlias,
+                    onNavigateBack = { navController.popBackStack() },
+                    onRatingSaved = {
+                        navController.popBackStack(FARMER_HOME_ROUTE, inclusive = false)
+                    }
+                )
+            }
         }
         composable(PILOT_HOME_ROUTE) {
             state.user?.takeIf { it.role == UserRole.PILOT.value }?.let { user ->
@@ -181,3 +286,6 @@ private const val FARMER_HOME_ROUTE = "farmer-home"
 private const val PILOT_HOME_ROUTE = "pilot-home"
 private const val PILOT_PROFILE_ROUTE = "pilot-profile"
 private const val ADMIN_HOME_ROUTE = "admin-home"
+private const val NEED_FORM_ROUTE = "need-form"
+private const val MATCHING_ROUTE = "matching"
+private const val RATING_ROUTE = "rating/{interestId}/{pilotAlias}"

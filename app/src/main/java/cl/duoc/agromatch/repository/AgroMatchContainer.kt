@@ -19,4 +19,10 @@ class AgroMatchContainer(context: Context) {
         pilotSpecialtyDao = database.pilotSpecialtyDao(),
         authRepository = authRepository
     )
+    
+    val farmerRepository = FarmerRepository(
+        needDao = database.needDao(),
+        interestDao = database.interestDao(),
+        ratingDao = database.ratingDao()
+    )
 }

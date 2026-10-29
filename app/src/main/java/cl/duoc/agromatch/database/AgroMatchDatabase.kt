@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import cl.duoc.agromatch.model.Interest
+import cl.duoc.agromatch.model.Need
+import cl.duoc.agromatch.model.Rating
 import cl.duoc.agromatch.model.User
 import cl.duoc.agromatch.model.PilotProfile
 import cl.duoc.agromatch.model.PilotCoverage
@@ -15,18 +18,24 @@ import androidx.room.AutoMigration
         User::class,
         PilotProfile::class,
         PilotCoverage::class,
-        PilotSpecialty::class
+        PilotSpecialty::class,
+        Need::class,
+        Interest::class,
+        Rating::class
     ],
     version = 2,
     exportSchema = true,
     autoMigrations = [AutoMigration(from = 1, to = 2)]
-
 )
 abstract class AgroMatchDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun pilotProfileDao(): PilotProfileDao
     abstract fun pilotCoverageDao(): PilotCoverageDao
     abstract fun pilotSpecialtyDao(): PilotSpecialtyDao
+    abstract fun needDao(): NeedDao
+    abstract fun interestDao(): InterestDao
+    abstract fun ratingDao(): RatingDao
+
     companion object {
         private const val DATABASE_NAME = "agromatch.db"
 

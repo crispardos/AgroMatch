@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.database.sqlite.SQLiteConstraintException
 import cl.duoc.agromatch.database.DemoDataSeeder
+import cl.duoc.agromatch.database.PilotDemoSeeder
 import cl.duoc.agromatch.database.UserDao
 import cl.duoc.agromatch.model.User
 import cl.duoc.agromatch.model.UserRole
@@ -33,6 +34,8 @@ class AuthRepository(
 
     suspend fun initialize(): User? {
         seeder.seedAdminIfMissing()
+        val pilotSeeder = PilotDemoSeeder(userDao, passwordHasher)
+        pilotSeeder.seedPilotsIfMissing()
         return restoreSession()
     }
 
