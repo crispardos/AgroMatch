@@ -94,6 +94,33 @@ class AuthRepository(
         }
     }
 
+    suspend fun updateAlias(aliasInput: String): AuthResult {
+        val alias = aliasInput.trim()
+        if (!isValidAlias(alias)) {
+            return AuthResult.Failure(AuthFailure.INVALID_FIELDS)
+        }
+
+        return try {
+            val user = restoreSession()
+                ?: return AuthResult.Failure(AuthFailure.INVALID_CREDENTIALS)
+            val aliasKey = normalizeAlias(alias)
+            val existing = userDao.findByAliasKey(aliasKey)
+            if (existing != null && existing.id != user.id) {
+                return AuthResult.Failure(AuthFailure.ALIAS_ALREADY_EXISTS)
+            }
+            if (userDao.updateAlias(user.id, alias, aliasKey) != 1) {
+                return AuthResult.Failure(AuthFailure.STORAGE_ERROR)
+            }
+            AuthResult.Success(user.copy(alias = alias, aliasKey = aliasKey))
+        } catch (_: SQLiteConstraintException) {
+            AuthResult.Failure(AuthFailure.ALIAS_ALREADY_EXISTS)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            AuthResult.Failure(AuthFailure.STORAGE_ERROR)
+        }
+    }
+
     suspend fun restoreSession(): User? {
         val userId = preferences.getLong(KEY_ACTIVE_USER_ID, INVALID_USER_ID)
         if (userId == INVALID_USER_ID) return null

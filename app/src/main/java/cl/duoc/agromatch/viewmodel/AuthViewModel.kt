@@ -17,7 +17,8 @@ data class AuthUiState(
     val isCheckingSession: Boolean = true,
     val isWorking: Boolean = false,
     val user: User? = null,
-    val error: AuthFailure? = null
+    val error: AuthFailure? = null,
+    val aliasSaved: Boolean = false
 )
 
 class AuthViewModel(
@@ -74,13 +75,28 @@ class AuthViewModel(
         }
     }
 
+    fun updateAlias(alias: String) {
+        if (mutableState.value.isWorking) return
+        mutableState.value = mutableState.value.copy(isWorking = true, error = null, aliasSaved = false)
+        viewModelScope.launch {
+            when (val result = authRepository.updateAlias(alias)) {
+                is AuthResult.Success -> mutableState.value = mutableState.value.copy(
+                    user = result.user, isWorking = false, aliasSaved = true
+                )
+                is AuthResult.Failure -> mutableState.value = mutableState.value.copy(
+                    error = result.reason, isWorking = false
+                )
+            }
+        }
+    }
+
     fun logout() {
         authRepository.logout()
         mutableState.value = mutableState.value.copy(user = null, error = null)
     }
 
     fun clearError() {
-        mutableState.value = mutableState.value.copy(error = null)
+        mutableState.value = mutableState.value.copy(error = null, aliasSaved = false)
     }
 
     private fun applyResult(result: AuthResult) {
