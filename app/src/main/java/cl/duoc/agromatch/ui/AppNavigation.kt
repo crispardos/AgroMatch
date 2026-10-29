@@ -35,6 +35,7 @@ import cl.duoc.agromatch.ui.pilot.PilotHomeScreen
 import cl.duoc.agromatch.ui.pilot.PilotProfileScreen
 import cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory
 import cl.duoc.agromatch.viewmodel.AuthViewModel
+import cl.duoc.agromatch.viewmodel.FarmerViewModel
 import cl.duoc.agromatch.viewmodel.PilotViewModel
 
 @Composable
@@ -84,12 +85,8 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
             )
         }
         composable(FARMER_HOME_ROUTE) {
-            state.user?.let { user -> val farmerViewModel: cl.duoc.agromatch.viewmodel.FarmerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                factory = cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory(
-                    authRepository = cl.duoc.agromatch.repository.AgroMatchContainer(androidx.compose.ui.platform.LocalContext.current).authRepository,
-                    farmerRepository = cl.duoc.agromatch.repository.AgroMatchContainer(androidx.compose.ui.platform.LocalContext.current).farmerRepository
-                )
-            )
+            state.user?.let {
+                val farmerViewModel: FarmerViewModel = viewModel(factory = factory)
 
                 cl.duoc.agromatch.ui.farmer.FarmerHomeScreen(
                     viewModel = farmerViewModel,
@@ -103,14 +100,7 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
         }
         composable(NEED_FORM_ROUTE) {
             state.user?.let { user ->
-                val context = androidx.compose.ui.platform.LocalContext.current
-                val container = remember { cl.duoc.agromatch.repository.AgroMatchContainer(context) }
-                val farmerViewModel: cl.duoc.agromatch.viewmodel.FarmerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                    factory = cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory(
-                        authRepository = container.authRepository,
-                        farmerRepository = container.farmerRepository
-                    )
-                )
+                val farmerViewModel: FarmerViewModel = viewModel(factory = factory)
 
                 cl.duoc.agromatch.ui.farmer.NeedFormScreen(
                     farmerId = user.id,
@@ -130,15 +120,8 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
         ) { backStackEntry ->
             val needId = backStackEntry.arguments?.getLong("needId") ?: 0L
 
-            state.user?.let { user ->
-                val context = androidx.compose.ui.platform.LocalContext.current
-                val container = remember { cl.duoc.agromatch.repository.AgroMatchContainer(context) }
-                val farmerViewModel: cl.duoc.agromatch.viewmodel.FarmerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                    factory = cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory(
-                        authRepository = container.authRepository,
-                        farmerRepository = container.farmerRepository
-                    )
-                )
+            state.user?.let {
+                val farmerViewModel: FarmerViewModel = viewModel(factory = factory)
 
                 val need = farmerViewModel.state.collectAsState().value.needs.find { it.id == needId }
 
@@ -166,15 +149,8 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
             val interestId = backStackEntry.arguments?.getLong("interestId") ?: 0L
             val pilotAlias = backStackEntry.arguments?.getString("pilotAlias") ?: "el piloto"
 
-            state.user?.let { user ->
-                val context = androidx.compose.ui.platform.LocalContext.current
-                val container = remember { cl.duoc.agromatch.repository.AgroMatchContainer(context) }
-                val farmerViewModel: cl.duoc.agromatch.viewmodel.FarmerViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                    factory = cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory(
-                        authRepository = container.authRepository,
-                        farmerRepository = container.farmerRepository
-                    )
-                )
+            state.user?.let {
+                val farmerViewModel: FarmerViewModel = viewModel(factory = factory)
                 LaunchedEffect(interestId) {
                     farmerViewModel.setActiveInterestId(interestId)
                 }
