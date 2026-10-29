@@ -40,7 +40,7 @@ jobs:
       - name: Aceptar licencias e instalar SDK 37
         run: |
           yes | sdkmanager --licenses
-          sdkmanager --install "platforms;android-37" "build-tools;36.0.0"
+          sdkmanager --install "platforms;android-37.0" "build-tools;36.0.0"
 
       - name: Configurar caché de Gradle
         uses: gradle/actions/setup-gradle@v4
