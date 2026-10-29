@@ -17,7 +17,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val container = AgroMatchContainer(applicationContext)
-        val factory = AgroMatchViewModelFactory(container.authRepository, container.pilotRepository, container.farmerRepository)
+        val factory = AgroMatchViewModelFactory(
+            container.authRepository,
+            container.farmerRepository,
+            container.pilotRepository
+        )
         val authViewModel = ViewModelProvider(
             this,
             factory
