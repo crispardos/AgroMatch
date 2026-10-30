@@ -82,7 +82,34 @@ fun PilotHomeScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(stringResource(R.string.pilot_requests_title), style = MaterialTheme.typography.titleMedium)
-                            Text(stringResource(R.string.pilot_no_requests))
+                            if (state.requests.isEmpty()) {
+                                Text(stringResource(R.string.pilot_no_requests))
+                            } else {
+                                state.requests.forEach { request ->
+                                    Card(modifier = Modifier.fillMaxWidth()) {
+                                        Column(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                stringResource(R.string.pilot_request_from, request.farmerAlias),
+                                                style = MaterialTheme.typography.titleSmall
+                                            )
+                                            Text(stringResource(
+                                                R.string.pilot_request_need,
+                                                Catalog.cropLabel(request.cropCode),
+                                                request.hectares,
+                                                Catalog.zoneLabel(request.zoneCode)
+                                            ))
+                                            Text(stringResource(
+                                                R.string.pilot_request_dates,
+                                                request.startEpochDay,
+                                                request.endEpochDay
+                                            ))
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     Text(stringResource(R.string.pilot_directory_note), style = MaterialTheme.typography.bodySmall)

@@ -6,6 +6,19 @@ import androidx.room.Query
 import androidx.room.Transaction
 import cl.duoc.agromatch.model.Interest
 import cl.duoc.agromatch.model.InterestStatus
+import kotlinx.coroutines.flow.Flow
+
+data class PilotRequestSummary(
+    val interestId: Long,
+    val needId: Long,
+    val farmerAlias: String,
+    val cropCode: String,
+    val zoneCode: String,
+    val hectares: Double,
+    val startEpochDay: Long,
+    val endEpochDay: Long,
+    val createdEpochDay: Long
+)
 
 @Dao
 interface InterestDao {
@@ -21,6 +34,30 @@ interface InterestDao {
 
     @Query("SELECT * FROM interests WHERE needId = :needId ORDER BY createdEpochDay DESC")
     suspend fun getInterestsByNeed(needId: Long): List<Interest>
+
+    @Query("SELECT * FROM interests WHERE needId = :needId ORDER BY id DESC LIMIT 1")
+    suspend fun getLatestByNeed(needId: Long): Interest?
+
+    @Query("""
+        SELECT interests.id AS interestId,
+            needs.id AS needId,
+            users.alias AS farmerAlias,
+            needs.cropCode AS cropCode,
+            needs.zoneCode AS zoneCode,
+            needs.hectares AS hectares,
+            needs.startEpochDay AS startEpochDay,
+            needs.endEpochDay AS endEpochDay,
+            interests.createdEpochDay AS createdEpochDay
+        FROM interests
+        INNER JOIN needs ON needs.id = interests.needId
+        INNER JOIN users ON users.id = needs.farmerId
+        WHERE interests.pilotId = :pilotId AND interests.status = :status
+        ORDER BY interests.createdEpochDay DESC, interests.id DESC
+    """)
+    fun observeRequestsForPilot(
+        pilotId: Long,
+        status: String = InterestStatus.ACTIVE.value
+    ): Flow<List<PilotRequestSummary>>
 
     @Query("UPDATE interests SET status = :status, completedEpochDay = :completedEpochDay WHERE id = :interestId")
     suspend fun updateStatus(
@@ -40,8 +77,8 @@ interface InterestDao {
         if (currentActive != null) {
             updateStatus(
                 interestId = currentActive.id,
-                status = InterestStatus.COMPLETED.value,
-                completedEpochDay = newInterest.createdEpochDay
+                status = InterestStatus.REPLACED.value,
+                completedEpochDay = null
             )
         }
         return insert(newInterest)

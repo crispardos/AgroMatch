@@ -31,6 +31,9 @@
     <string name="pilot_edit_profile">Editar mi perfil</string>
     <string name="pilot_requests_title">Solicitudes recibidas</string>
     <string name="pilot_no_requests">Aún no has recibido solicitudes.</string>
+    <string name="pilot_request_from">Solicitud de %1$s</string>
+    <string name="pilot_request_need">%1$s · %2$.1f ha · %3$s</string>
+    <string name="pilot_request_dates">Fechas solicitadas: día %1$d al %2$d</string>
     <string name="pilot_service">Servicio: fumigación con dron</string>
     <string name="pilot_experience_summary">Experiencia: %1$d años</string>
     <string name="pilot_capacity_summary">Capacidad: %1$.2f ha/h · %2$.2f h/día</string>

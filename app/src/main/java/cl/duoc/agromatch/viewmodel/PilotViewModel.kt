@@ -7,6 +7,7 @@ import cl.duoc.agromatch.model.PilotCoverage
 import cl.duoc.agromatch.model.PilotProfile
 import cl.duoc.agromatch.model.PilotSpecialty
 import cl.duoc.agromatch.model.UserRole
+import cl.duoc.agromatch.database.PilotRequestSummary
 import cl.duoc.agromatch.repository.AuthRepository
 import cl.duoc.agromatch.repository.PilotFailure
 import cl.duoc.agromatch.repository.PilotRepository
@@ -23,6 +24,7 @@ data class PilotUiState(
     val profile: PilotProfile? = null,
     val coverages: List<PilotCoverage> = emptyList(),
     val specialties: List<PilotSpecialty> = emptyList(),
+    val requests: List<PilotRequestSummary> = emptyList(),
     val experienceYears: String = "0",
     val hectaresPerHour: String = "",
     val workingHoursPerDay: String = "",
@@ -68,21 +70,27 @@ class PilotViewModel(
                 combine(
                     pilotRepository.observeProfile(userId),
                     pilotRepository.observeCoverages(userId),
-                    pilotRepository.observeSpecialties(userId)
-                ) { profile, coverages, specialties -> Triple(profile, coverages, specialties) }
-                    .collect { (profile, coverages, specialties) ->
+                    pilotRepository.observeSpecialties(userId),
+                    pilotRepository.observeRequests(userId)
+                ) { profile, coverages, specialties, requests ->
+                    PilotProfileState(profile, coverages, specialties, requests)
+                }
+                    .collect { profileState ->
                         var updated = mutableState.value.copy(
-                            profile = profile, coverages = coverages, specialties = specialties,
+                            profile = profileState.profile,
+                            coverages = profileState.coverages,
+                            specialties = profileState.specialties,
+                            requests = profileState.requests,
                             isLoading = false, error = null
                         )
                         // Cargar el borrador una sola vez: las emisiones no borran lo escrito.
                         if (!draftLoaded) {
                             updated = updated.copy(
-                                experienceYears = (profile?.experienceYears ?: 0).toString(),
-                                hectaresPerHour = profile?.hectaresPerHour?.toString() ?: "",
-                                workingHoursPerDay = profile?.workingHoursPerDay?.toString() ?: "",
-                                selectedZones = coverages.map { it.zoneCode }.toSet(),
-                                selectedSpecialties = specialties.map { it.specialtyCode }.toSet()
+                                experienceYears = (profileState.profile?.experienceYears ?: 0).toString(),
+                                hectaresPerHour = profileState.profile?.hectaresPerHour?.toString() ?: "",
+                                workingHoursPerDay = profileState.profile?.workingHoursPerDay?.toString() ?: "",
+                                selectedZones = profileState.coverages.map { it.zoneCode }.toSet(),
+                                selectedSpecialties = profileState.specialties.map { it.specialtyCode }.toSet()
                             )
                             draftLoaded = true
                         }
@@ -97,6 +105,13 @@ class PilotViewModel(
             }
         }
     }
+
+    private data class PilotProfileState(
+        val profile: PilotProfile?,
+        val coverages: List<PilotCoverage>,
+        val specialties: List<PilotSpecialty>,
+        val requests: List<PilotRequestSummary>
+    )
 
     fun updateExperience(value: String) {
         mutableState.value = mutableState.value.copy(

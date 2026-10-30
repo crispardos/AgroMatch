@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import cl.duoc.agromatch.model.Interest
 import cl.duoc.agromatch.model.Need
 import cl.duoc.agromatch.model.Rating
@@ -23,7 +25,7 @@ import androidx.room.AutoMigration
         Interest::class,
         Rating::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -51,7 +53,13 @@ abstract class AgroMatchDatabase : RoomDatabase() {
                     context.applicationContext,
                     AgroMatchDatabase::class.java,
                     DATABASE_NAME
-                ).build().also { instance = it }
+                ).addMigrations(MIGRATION_3_4).build().also { instance = it }
             }
+
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX IF EXISTS index_interests_needId_pilotId")
+            }
+        }
     }
 }

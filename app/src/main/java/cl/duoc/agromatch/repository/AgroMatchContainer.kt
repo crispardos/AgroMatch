@@ -17,6 +17,7 @@ class AgroMatchContainer(context: Context) {
         pilotProfileDao = database.pilotProfileDao(),
         pilotCoverageDao = database.pilotCoverageDao(),
         pilotSpecialtyDao = database.pilotSpecialtyDao(),
+        interestDao = database.interestDao(),
         authRepository = authRepository
     )
 

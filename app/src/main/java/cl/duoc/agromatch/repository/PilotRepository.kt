@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import cl.duoc.agromatch.database.AgroMatchDatabase
 import cl.duoc.agromatch.database.PilotCoverageDao
 import cl.duoc.agromatch.database.PilotDirectoryEntry
+import cl.duoc.agromatch.database.InterestDao
+import cl.duoc.agromatch.database.PilotRequestSummary
 import cl.duoc.agromatch.database.PilotProfileDao
 import cl.duoc.agromatch.database.PilotSpecialtyDao
 import cl.duoc.agromatch.database.UserDao
@@ -39,6 +41,7 @@ class PilotRepository(
     private val pilotProfileDao: PilotProfileDao,
     private val pilotCoverageDao: PilotCoverageDao,
     private val pilotSpecialtyDao: PilotSpecialtyDao,
+    private val interestDao: InterestDao,
     private val authRepository: AuthRepository
 ) {
     fun observeDirectory(): Flow<List<PilotDirectoryEntry>> =
@@ -58,6 +61,9 @@ class PilotRepository(
 
     fun observeSpecialties(pilotId: Long): Flow<List<PilotSpecialty>> =
         pilotSpecialtyDao.observeByPilotId(pilotId)
+
+    fun observeRequests(pilotId: Long): Flow<List<PilotRequestSummary>> =
+        interestDao.observeRequestsForPilot(pilotId)
 
     suspend fun saveProfile(
         profile: PilotProfile,
