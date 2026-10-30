@@ -16,6 +16,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cl.duoc.agromatch.model.Catalog
 import cl.duoc.agromatch.model.Need
+import cl.duoc.agromatch.model.InterestStatus
+import cl.duoc.agromatch.database.FarmerNeedOverview
+import cl.duoc.agromatch.ui.formatEpochDay
 import cl.duoc.agromatch.viewmodel.FarmerViewModel
 
 
@@ -26,6 +29,7 @@ fun FarmerHomeScreen(
     viewModel: FarmerViewModel,
     onNavigateToCreateNeed: () -> Unit,
     onNavigateToMatching: (Need) -> Unit,
+    onNavigateToNeedDetails: (Long) -> Unit,
     onLogout: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
@@ -57,7 +61,7 @@ fun FarmerHomeScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-            } else if (state.needs.isEmpty()) {
+            } else if (state.needOverviews.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = "No tienes terrenos registrados.\nToca el botón + para crear uno.",
@@ -68,10 +72,16 @@ fun FarmerHomeScreen(
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(state.needs) { need ->
+                    items(state.needOverviews) { overview ->
                         NeedCard(
-                            need = need,
-                            onClick = { onNavigateToMatching(need) }
+                            overview = overview,
+                            onClick = {
+                                if (overview.interestStatus == InterestStatus.COMPLETED.value) {
+                                    onNavigateToNeedDetails(overview.need.id)
+                                } else {
+                                    onNavigateToMatching(overview.need)
+                                }
+                            }
                         )
                     }
                 }
@@ -90,9 +100,16 @@ fun FarmerHomeScreen(
 
 @Composable
 private fun NeedCard(
-    need: Need,
+    overview: FarmerNeedOverview,
     onClick: () -> Unit
 ) {
+    val need = overview.need
+    val statusLabel = when (overview.interestStatus) {
+        InterestStatus.ACTIVE.value -> "Solicitud enviada"
+        InterestStatus.COMPLETED.value -> "Completada"
+        else -> "Sin piloto seleccionado"
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -110,8 +127,15 @@ private fun NeedCard(
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = "Zona: ${Catalog.zoneLabel(need.zoneCode)}", style = MaterialTheme.typography.bodyMedium)
             Text(text = "Superficie: ${need.hectares} ha", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "Estado: $statusLabel", style = MaterialTheme.typography.bodyMedium)
+            if (overview.interestStatus == InterestStatus.COMPLETED.value) {
+                Text(
+                    text = overview.ratingScore?.let { "Valoración: $it/5" } ?: "Sin valoración",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
             Text(
-                text = "Fechas: Día ${need.startEpochDay} al ${need.endEpochDay}",
+                text = "Fechas: ${formatEpochDay(need.startEpochDay)} al ${formatEpochDay(need.endEpochDay)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

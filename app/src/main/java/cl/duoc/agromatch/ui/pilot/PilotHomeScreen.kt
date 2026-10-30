@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import cl.duoc.agromatch.R
 import cl.duoc.agromatch.model.Catalog
 import cl.duoc.agromatch.repository.PilotFailure
+import cl.duoc.agromatch.ui.formatEpochDay
+import cl.duoc.agromatch.ui.formatIsoDate
 import cl.duoc.agromatch.viewmodel.PilotUiState
 
 @Composable
@@ -63,7 +65,17 @@ fun PilotHomeScreen(
                                 Text(stringResource(R.string.pilot_service))
                                 Text(stringResource(R.string.pilot_experience_summary, profile.experienceYears ?: 0))
                                 Text(stringResource(R.string.pilot_capacity_summary, profile.hectaresPerHour, profile.workingHoursPerDay))
-                                Text(stringResource(R.string.pilot_availability))
+                                 Text(
+                                     if (profile.availableFrom == null && profile.availableTo == null) {
+                                         stringResource(R.string.pilot_availability_unknown)
+                                     } else {
+                                         stringResource(
+                                             R.string.pilot_availability_range,
+                                             profile.availableFrom?.let(::formatIsoDate) ?: "Sin fecha inicial",
+                                             profile.availableTo?.let(::formatIsoDate) ?: "Sin fecha final"
+                                         )
+                                     }
+                                 )
                                 val zones = state.coverages.joinToString { Catalog.zoneLabel(it.zoneCode) }
                                 val specialties = state.specialties.joinToString { Catalog.cropLabel(it.specialtyCode) }
                                 Text(stringResource(R.string.pilot_coverage_summary,
@@ -103,8 +115,8 @@ fun PilotHomeScreen(
                                             ))
                                             Text(stringResource(
                                                 R.string.pilot_request_dates,
-                                                request.startEpochDay,
-                                                request.endEpochDay
+                                                formatEpochDay(request.startEpochDay),
+                                                formatEpochDay(request.endEpochDay)
                                             ))
                                         }
                                     }

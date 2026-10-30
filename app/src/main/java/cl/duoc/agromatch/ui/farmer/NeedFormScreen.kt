@@ -18,8 +18,10 @@ import androidx.compose.ui.unit.dp
 import cl.duoc.agromatch.model.Catalog
 import cl.duoc.agromatch.model.Need
 import cl.duoc.agromatch.model.AgroMatchValidator
-import java.text.SimpleDateFormat
-import java.util.*
+import cl.duoc.agromatch.ui.epochDayFromPickerDate
+import cl.duoc.agromatch.ui.formatEpochDay
+import java.util.Calendar
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,30 +39,20 @@ fun NeedFormScreen(
     var selectedCrop by remember { mutableStateOf(Catalog.Crop.VINEYARD) }
     var selectedZone by remember { mutableStateOf(Catalog.Zone.COLCHAGUA) }
 
-    // Fechas en milisegundos (Long)
-    var startDateMillis by remember { mutableStateOf<Long?>(null) }
-    var endDateMillis by remember { mutableStateOf<Long?>(null) }
+    var startEpochDay by remember { mutableStateOf<Long?>(null) }
+    var endEpochDay by remember { mutableStateOf<Long?>(null) }
 
     var showValidationError by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf("") }
 
     val context = LocalContext.current
-    val dateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
-
-    // Convertir de milisegundos a epochDay para la base de datos
-    fun toEpochDay(millis: Long?): Long {
-        return millis?.let { it / 86_400_000L } ?: -1L
-    }
-
-    fun showDatePicker(initialMillis: Long?, onDateSelected: (Long) -> Unit) {
-        val calendar = Calendar.getInstance()
-        initialMillis?.let { calendar.timeInMillis = it }
+    fun showDatePicker(initialEpochDay: Long?, onDateSelected: (Long) -> Unit) {
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        initialEpochDay?.let { calendar.timeInMillis = it * 86_400_000L }
         DatePickerDialog(
             context,
             { _, year, month, dayOfMonth ->
-                val selected = Calendar.getInstance()
-                selected.set(year, month, dayOfMonth)
-                onDateSelected(selected.timeInMillis)
+                onDateSelected(epochDayFromPickerDate(year, month, dayOfMonth))
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
@@ -163,16 +155,16 @@ fun NeedFormScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = { showDatePicker(startDateMillis) { startDateMillis = it } },
+                    onClick = { showDatePicker(startEpochDay) { startEpochDay = it } },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(startDateMillis?.let { dateFormatter.format(Date(it)) } ?: "Fecha Inicio")
+                    Text(startEpochDay?.let(::formatEpochDay) ?: "Fecha Inicio")
                 }
                 OutlinedButton(
-                    onClick = { showDatePicker(endDateMillis) { endDateMillis = it } },
+                    onClick = { showDatePicker(endEpochDay) { endEpochDay = it } },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(endDateMillis?.let { dateFormatter.format(Date(it)) } ?: "Fecha Fin")
+                    Text(endEpochDay?.let(::formatEpochDay) ?: "Fecha Fin")
                 }
             }
 
@@ -188,7 +180,9 @@ fun NeedFormScreen(
                 onClick = {
                     onClearError()
                     val hectares = hectaresText.replace(',', '.').toDoubleOrNull()
-                    if (hectares == null || startDateMillis == null || endDateMillis == null) {
+                    val startDay = startEpochDay
+                    val endDay = endEpochDay
+                    if (hectares == null || startDay == null || endDay == null) {
                         showValidationError = true
                         validationError = "Por favor completa todos los campos correctamente."
                         return@Button
@@ -199,8 +193,8 @@ fun NeedFormScreen(
                         cropCode = selectedCrop,
                         zoneCode = selectedZone,
                         hectares = hectares,
-                        startEpochDay = toEpochDay(startDateMillis),
-                        endEpochDay = toEpochDay(endDateMillis)
+                        startEpochDay = startDay,
+                        endEpochDay = endDay
                     )
 
                     val errors = AgroMatchValidator.validateNeed(newNeed)

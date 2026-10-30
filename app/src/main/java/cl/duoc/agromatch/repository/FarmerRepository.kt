@@ -1,6 +1,7 @@
 package cl.duoc.agromatch.repository
 
 import cl.duoc.agromatch.database.InterestDao
+import cl.duoc.agromatch.database.FarmerNeedOverview
 import cl.duoc.agromatch.database.NeedDao
 import cl.duoc.agromatch.database.PilotCoverageDao
 import cl.duoc.agromatch.database.PilotProfileDao
@@ -26,6 +27,10 @@ class FarmerRepository(
 
     fun getNeedsByFarmer(farmerId: Long): Flow<List<Need>> {
         return needDao.getNeedsByFarmer(farmerId)
+    }
+
+    fun getNeedOverviewsByFarmer(farmerId: Long): Flow<List<FarmerNeedOverview>> {
+        return needDao.observeOverviewsByFarmer(farmerId)
     }
 
     suspend fun getNeedById(needId: Long): Need? {

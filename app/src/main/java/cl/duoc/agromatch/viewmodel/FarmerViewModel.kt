@@ -2,6 +2,7 @@ package cl.duoc.agromatch.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import cl.duoc.agromatch.database.FarmerNeedOverview
 import cl.duoc.agromatch.model.*
 import cl.duoc.agromatch.repository.FarmerRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,6 +12,7 @@ import kotlinx.coroutines.launch
 
 data class FarmerUiState(
     val needs: List<Need> = emptyList(),
+    val needOverviews: List<FarmerNeedOverview> = emptyList(),
     val currentNeed: Need? = null,
     val matchResults: List<MatchResult> = emptyList(),
     val filteredResults: List<MatchResult> = emptyList(),
@@ -37,8 +39,12 @@ class FarmerViewModel(
         viewModelScope.launch {
             mutableState.value = mutableState.value.copy(isLoading = true, error = null)
             try {
-                repository.getNeedsByFarmer(farmerId).collect { needs ->
-                    mutableState.value = mutableState.value.copy(needs = needs, isLoading = false)
+                repository.getNeedOverviewsByFarmer(farmerId).collect { overviews ->
+                    mutableState.value = mutableState.value.copy(
+                        needs = overviews.map { it.need },
+                        needOverviews = overviews,
+                        isLoading = false
+                    )
                 }
             } catch (e: Exception) {
                 mutableState.value = mutableState.value.copy(isLoading = false, error = "Error al cargar necesidades")

@@ -8,6 +8,7 @@ import cl.duoc.agromatch.model.Catalog
 import cl.duoc.agromatch.model.Interest
 import cl.duoc.agromatch.model.InterestStatus
 import cl.duoc.agromatch.model.Need
+import cl.duoc.agromatch.model.Rating
 import cl.duoc.agromatch.model.User
 import cl.duoc.agromatch.model.UserRole
 import kotlinx.coroutines.flow.first
@@ -74,5 +75,22 @@ class InterestDaoTest {
         request = dao.observeRequestsForPilot(firstPilotId).first().single()
         assertEquals(InterestStatus.ACTIVE.value, dao.getLatestByNeed(needId)?.status)
         assertEquals("Agricultor", request.farmerAlias)
+
+        val completedInterest = dao.getLatestByNeed(needId)!!
+        dao.updateStatus(completedInterest.id, InterestStatus.COMPLETED.value, 20_003L)
+        database.ratingDao().insert(
+            Rating(
+                interestId = completedInterest.id,
+                score = 5,
+                comment = "Buen servicio",
+                createdEpochDay = 20_003L
+            )
+        )
+
+        val overview = database.needDao().observeOverviewsByFarmer(farmerId).first().single()
+        assertEquals(InterestStatus.COMPLETED.value, overview.interestStatus)
+        assertEquals("Piloto Uno", overview.pilotAlias)
+        assertEquals(5, overview.ratingScore)
+        assertEquals("Buen servicio", overview.ratingComment)
     }
 }

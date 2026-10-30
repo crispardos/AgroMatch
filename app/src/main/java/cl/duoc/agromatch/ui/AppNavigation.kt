@@ -96,6 +96,9 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                     onNavigateToMatching = { need ->
                         navController.navigate("$MATCHING_ROUTE/${need.id}")
                     },
+                    onNavigateToNeedDetails = { needId ->
+                        navController.navigate("$NEED_DETAILS_ROUTE/$needId")
+                    },
                     onLogout = authViewModel::logout
                 )
             }
@@ -116,6 +119,30 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                         farmerViewModel.createNeed(need) { navController.popBackStack() }
                     }
                 )
+            }
+        }
+        composable(
+            route = "$NEED_DETAILS_ROUTE/{needId}",
+            arguments = listOf(
+                androidx.navigation.navArgument("needId") { type = androidx.navigation.NavType.LongType }
+            )
+        ) { backStackEntry ->
+            val needId = backStackEntry.arguments?.getLong("needId") ?: 0L
+            state.user?.let { user ->
+                val farmerFactory = remember(user.id) { factory.forFarmer(user.id) }
+                val farmerViewModel: FarmerViewModel = viewModel(factory = farmerFactory)
+                val farmerState by farmerViewModel.state.collectAsStateWithLifecycle()
+                val overview = farmerState.needOverviews.firstOrNull { it.need.id == needId }
+
+                when {
+                    overview != null -> cl.duoc.agromatch.ui.farmer.NeedDetailsScreen(
+                        overview = overview,
+                        onNavigateBack = { navController.popBackStack() },
+                        onFindAnotherPilot = { navController.navigate("$MATCHING_ROUTE/$needId") }
+                    )
+                    farmerState.isLoading -> LoadingScreen()
+                    else -> Text("No se encontró el terreno.")
+                }
             }
         }
         composable(
@@ -204,6 +231,9 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                     onExperienceChange = pilotViewModel::updateExperience,
                     onHectaresChange = pilotViewModel::updateHectares,
                     onWorkingHoursChange = pilotViewModel::updateWorkingHours,
+                    onAvailabilityFromChange = pilotViewModel::updateAvailableFrom,
+                    onAvailabilityToChange = pilotViewModel::updateAvailableTo,
+                    onClearAvailability = pilotViewModel::clearAvailability,
                     onToggleZone = pilotViewModel::toggleZone,
                     onToggleSpecialty = pilotViewModel::toggleSpecialty,
                     onSave = pilotViewModel::saveProfile,
@@ -271,5 +301,6 @@ private const val PILOT_HOME_ROUTE = "pilot-home"
 private const val PILOT_PROFILE_ROUTE = "pilot-profile"
 private const val ADMIN_HOME_ROUTE = "admin-home"
 private const val NEED_FORM_ROUTE = "need-form"
+private const val NEED_DETAILS_ROUTE = "need-details"
 private const val MATCHING_ROUTE = "matching"
 private const val RATING_ROUTE = "rating/{interestId}/{pilotAlias}"

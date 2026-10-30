@@ -1,5 +1,7 @@
 package cl.duoc.agromatch.ui.pilot
 
+import android.app.DatePickerDialog
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +17,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -33,6 +37,11 @@ import cl.duoc.agromatch.model.Catalog
 import cl.duoc.agromatch.repository.AuthFailure
 import cl.duoc.agromatch.viewmodel.AuthUiState
 import cl.duoc.agromatch.viewmodel.PilotUiState
+import cl.duoc.agromatch.ui.formatIsoDate
+import cl.duoc.agromatch.ui.isoDateFromPickerDate
+import cl.duoc.agromatch.ui.parseIsoDateToEpochDay
+import java.util.Calendar
+import java.util.TimeZone
 
 @Composable
 fun PilotProfileScreen(
@@ -43,12 +52,16 @@ fun PilotProfileScreen(
     onExperienceChange: (String) -> Unit,
     onHectaresChange: (String) -> Unit,
     onWorkingHoursChange: (String) -> Unit,
+    onAvailabilityFromChange: (String?) -> Unit,
+    onAvailabilityToChange: (String?) -> Unit,
+    onClearAvailability: () -> Unit,
     onToggleZone: (String) -> Unit,
     onToggleSpecialty: (String) -> Unit,
     onSave: () -> Unit,
     onBack: () -> Unit
 ) {
     val user = authState.user ?: return
+    val context = LocalContext.current
     var alias by rememberSaveable(user.id) { mutableStateOf(user.alias) }
     val enabled = !state.isLoading && !state.isWorking && !authState.isWorking
 
@@ -111,7 +124,41 @@ fun PilotProfileScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true, enabled = enabled, modifier = Modifier.fillMaxWidth()
             )
-            Text(stringResource(R.string.pilot_availability))
+            Text(stringResource(R.string.pilot_availability), style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        showAvailabilityPicker(context, state.availableFrom) { onAvailabilityFromChange(it) }
+                    },
+                    enabled = enabled,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        "${stringResource(R.string.pilot_availability_start)}: " +
+                            (state.availableFrom?.let(::formatIsoDate) ?: stringResource(R.string.pilot_availability_choose))
+                    )
+                }
+                OutlinedButton(
+                    onClick = {
+                        showAvailabilityPicker(context, state.availableTo) { onAvailabilityToChange(it) }
+                    },
+                    enabled = enabled,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        "${stringResource(R.string.pilot_availability_end)}: " +
+                            (state.availableTo?.let(::formatIsoDate) ?: stringResource(R.string.pilot_availability_choose))
+                    )
+                }
+            }
+            if (state.availableFrom != null || state.availableTo != null) {
+                TextButton(onClick = onClearAvailability, enabled = enabled) {
+                    Text(stringResource(R.string.pilot_availability_clear))
+                }
+            }
+            if (state.availabilityError) {
+                Text(stringResource(R.string.pilot_availability_error), color = MaterialTheme.colorScheme.error)
+            }
             Text(stringResource(R.string.pilot_calendar_note), style = MaterialTheme.typography.bodySmall)
             HorizontalDivider()
 
@@ -151,4 +198,22 @@ fun PilotProfileScreen(
             }
         }
     }
+}
+
+private fun showAvailabilityPicker(
+    context: Context,
+    currentIsoDate: String?,
+    onDateSelected: (String) -> Unit
+) {
+    val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+    parseIsoDateToEpochDay(currentIsoDate)?.let { calendar.timeInMillis = it * 86_400_000L }
+    DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            onDateSelected(isoDateFromPickerDate(year, month, dayOfMonth))
+        },
+        calendar.get(Calendar.YEAR),
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    ).show()
 }
