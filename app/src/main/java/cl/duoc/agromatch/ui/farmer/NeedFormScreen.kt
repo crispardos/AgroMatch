@@ -12,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -61,14 +63,16 @@ fun NeedFormScreen(
     }
 
     Scaffold(
+        containerColor = FarmerBackground,
         topBar = {
             TopAppBar(
-                title = { Text("Nueva Necesidad") },
+                title = { Text("Nueva Necesidad", color = Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack, enabled = !isSaving) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = FarmerCharcoal)
             )
         }
     ) { paddingValues ->
@@ -92,7 +96,9 @@ fun NeedFormScreen(
                     readOnly = true,
                     label = { Text("Cultivo") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cropExpanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = RectangleShape,
+                    colors = farmerFieldColors()
                 )
                 ExposedDropdownMenu(
                     expanded = cropExpanded,
@@ -122,7 +128,9 @@ fun NeedFormScreen(
                     readOnly = true,
                     label = { Text("Zona") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = zoneExpanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = RectangleShape,
+                    colors = farmerFieldColors()
                 )
                 ExposedDropdownMenu(
                     expanded = zoneExpanded,
@@ -143,10 +151,15 @@ fun NeedFormScreen(
             // Hectáreas
             OutlinedTextField(
                 value = hectaresText,
-                onValueChange = { hectaresText = it },
+                onValueChange = {
+                    hectaresText = it
+                    showValidationError = false
+                },
                 label = { Text("Hectáreas (ha)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = RectangleShape,
+                colors = farmerFieldColors()
             )
 
             // Fechas
@@ -156,13 +169,17 @@ fun NeedFormScreen(
             ) {
                 OutlinedButton(
                     onClick = { showDatePicker(startEpochDay) { startEpochDay = it } },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    shape = RectangleShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerBlue)
                 ) {
                     Text(startEpochDay?.let(::formatEpochDay) ?: "Fecha Inicio")
                 }
                 OutlinedButton(
                     onClick = { showDatePicker(endEpochDay) { endEpochDay = it } },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    shape = RectangleShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerBlue)
                 ) {
                     Text(endEpochDay?.let(::formatEpochDay) ?: "Fecha Fin")
                 }
@@ -207,10 +224,20 @@ fun NeedFormScreen(
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
+                    .height(52.dp),
+                shape = RectangleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = FarmerBlue)
             ) {
-                if (isSaving) CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                if (isSaving) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
                 else Text("Guardar Necesidad")
             }
         }
     }
 }
+
+@Composable
+private fun farmerFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = FarmerBlue,
+    focusedLabelColor = FarmerBlue,
+    cursorColor = FarmerBlue
+)

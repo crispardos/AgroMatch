@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cl.duoc.agromatch.model.*
@@ -34,14 +35,16 @@ fun MatchingResultsScreen(
     var filterSpecialty by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
+        containerColor = FarmerBackground,
         topBar = {
             TopAppBar(
-                title = { Text("Pilotos Disponibles") },
+                title = { Text("Pilotos Disponibles", color = Color.White, fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = FarmerCharcoal)
             )
         }
     ) { paddingValues ->
@@ -54,7 +57,8 @@ fun MatchingResultsScreen(
             Text(
                 text = "Para: ${Catalog.cropLabel(need.cropCode)} - ${need.hectares} ha en ${Catalog.zoneLabel(need.zoneCode)}",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = FarmerCharcoal
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -65,19 +69,31 @@ fun MatchingResultsScreen(
                 FilterChip(
                     selected = filterZone != null,
                     onClick = { filterZone = if (filterZone == null) need.zoneCode else null },
-                    label = { Text("Solo mi zona") }
+                    label = { Text("Solo mi zona") },
+                    shape = RectangleShape,
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = FarmerBlue,
+                        selectedLabelColor = Color.White
+                    )
                 )
                 FilterChip(
                     selected = filterSpecialty != null,
                     onClick = { filterSpecialty = if (filterSpecialty == null) need.cropCode else null },
-                    label = { Text("Solo mi cultivo") }
+                    label = { Text("Solo mi cultivo") },
+                    shape = RectangleShape,
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = FarmerBlue,
+                        selectedLabelColor = Color.White
+                    )
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
             Button(
                 onClick = { viewModel.applyFilters(filterZone, filterSpecialty) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RectangleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = FarmerBlue)
             ) {
                 Text("Aplicar Filtros")
             }
@@ -86,7 +102,7 @@ fun MatchingResultsScreen(
 
             if (state.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(color = FarmerBlue)
                 }
             } else {
                 if (state.error != null) {
@@ -101,7 +117,12 @@ fun MatchingResultsScreen(
                     val selectedAlias = state.matchResults
                         .firstOrNull { it.pilot.pilotId == currentInterest.pilotId }
                         ?.pilot?.alias ?: "el piloto seleccionado"
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RectangleShape,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, FarmerBlue),
+                        color = FarmerBlueSoft
+                    ) {
                         Text(
                             text = "Interés activo con $selectedAlias. Si eliges otro piloto, cambiarás la selección.",
                             modifier = Modifier.padding(12.dp),
@@ -113,7 +134,12 @@ fun MatchingResultsScreen(
                     val completedPilotAlias = state.matchResults
                         .firstOrNull { it.pilot.pilotId == currentInterest.pilotId }
                         ?.pilot?.alias ?: "el piloto"
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RectangleShape,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, FarmerSuccess),
+                        color = FarmerSuccessSoft
+                    ) {
                         Column(
                             modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -127,7 +153,9 @@ fun MatchingResultsScreen(
                             } else {
                                 OutlinedButton(
                                     onClick = { onNavigateToRating(currentInterest.id, completedPilotAlias) },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RectangleShape,
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerBlue)
                                 ) {
                                     Text("Valorar servicio")
                                 }
@@ -216,9 +244,10 @@ private fun MatchResultCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = androidx.compose.foundation.BorderStroke(2.dp, borderColor)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -278,8 +307,9 @@ private fun MatchResultCard(
                         onClick = onSelectPilot,
                         enabled = !isSelected && result.compatibility != MatchResult.Compatibility.INCOMPATIBLE,
                         modifier = Modifier.fillMaxWidth(),
+                        shape = RectangleShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                            containerColor = if (isSelected) FarmerCharcoal else FarmerBlue
                         )
                     ) {
                         Text(when {
@@ -294,7 +324,8 @@ private fun MatchResultCard(
                     OutlinedButton(
                         onClick = onCompleteService,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF4CAF50))
+                        shape = RectangleShape,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerSuccess)
                     ) {
                         Text("Marcar servicio como finalizado")
                     }

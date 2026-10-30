@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cl.duoc.agromatch.viewmodel.FarmerViewModel
@@ -29,14 +30,16 @@ fun RatingScreen(
     BackHandler(enabled = state.isLoading) { }
 
     Scaffold(
+        containerColor = FarmerBackground,
         topBar = {
             TopAppBar(
-                title = { Text("Valorar Servicio") },
+                title = { Text("Valorar Servicio", color = Color.White, fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack, enabled = !state.isLoading) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = FarmerCharcoal)
             )
         }
     ) { paddingValues ->
@@ -77,7 +80,13 @@ fun RatingScreen(
                 label = { Text("Comentario (opcional)") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3,
-                supportingText = { Text("${comment.length}/300") }
+                supportingText = { Text("${comment.length}/300") },
+                shape = RectangleShape,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = FarmerBlue,
+                    focusedLabelColor = FarmerBlue,
+                    cursorColor = FarmerBlue
+                )
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -94,7 +103,9 @@ fun RatingScreen(
                     }
                 },
                 enabled = score > 0 && !state.isLoading,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RectangleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = FarmerBlue)
             ) {
                 if (state.isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)

@@ -7,19 +7,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cl.duoc.agromatch.database.FarmerNeedOverview
@@ -41,16 +47,20 @@ fun NeedDetailsScreen(
         InterestStatus.COMPLETED.value -> "Completada"
         else -> "Sin piloto seleccionado"
     }
+    val statusColor = if (isCompleted) FarmerSuccess else FarmerBlue
+    val statusBackground = if (isCompleted) FarmerSuccessSoft else FarmerBlueSoft
 
     Scaffold(
+        containerColor = FarmerBackground,
         topBar = {
             TopAppBar(
-                title = { Text("Detalle del terreno") },
+                title = { Text("Detalle del terreno", color = Color.White, fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = FarmerCharcoal)
             )
         }
     ) { padding ->
@@ -61,20 +71,37 @@ fun NeedDetailsScreen(
             Text(
                 text = "Fumigación de ${Catalog.cropLabel(need.cropCode)}",
                 style = MaterialTheme.typography.headlineSmall,
+                color = FarmerCharcoal,
                 fontWeight = FontWeight.Bold
             )
-            Text("Estado: $statusLabel", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = statusLabel,
+                modifier = Modifier.background(statusBackground).padding(horizontal = 8.dp, vertical = 5.dp),
+                style = MaterialTheme.typography.labelLarge,
+                color = statusColor,
+                fontWeight = FontWeight.SemiBold
+            )
             Text("Zona: ${Catalog.zoneLabel(need.zoneCode)}")
             Text("Superficie: ${need.hectares} ha")
             Text("Fechas: ${formatEpochDay(need.startEpochDay)} al ${formatEpochDay(need.endEpochDay)}")
 
             Spacer(Modifier.height(4.dp))
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RectangleShape,
+                color = Color.White,
+                border = BorderStroke(1.dp, FarmerBorder)
+            ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(if (isCompleted) "Servicio realizado" else "Solicitud de servicio", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (isCompleted) "Servicio realizado" else "Solicitud de servicio",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = FarmerCharcoal,
+                        fontWeight = FontWeight.SemiBold
+                    )
                     overview.pilotAlias?.let { Text("Piloto: $it") }
                     if (isCompleted && overview.ratingScore != null) {
                         Text("Valoración: ${overview.ratingScore}/5")
@@ -85,7 +112,12 @@ fun NeedDetailsScreen(
                 }
             }
 
-            OutlinedButton(onClick = onFindAnotherPilot, modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = onFindAnotherPilot,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RectangleShape,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerBlue)
+            ) {
                 Text("Buscar otro piloto")
             }
         }
