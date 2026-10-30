@@ -24,14 +24,7 @@ fun MatchingResultsScreen(
     onNavigateToRating: (interestId: Long, pilotAlias: String) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
-    LaunchedEffect(state.activeInterest?.status) {
-        if (state.activeInterest?.status == cl.duoc.agromatch.model.InterestStatus.COMPLETED.value) {
-            val interest = state.activeInterest!!
-            val pilotName = state.matchResults.find { it.pilot.pilotId == interest.pilotId }?.pilot?.alias ?: "el piloto"
-
-            onNavigateToRating(interest.id, pilotName) // <-- CAMBIO AQUÍ
-        }
-    }
+    var pilotToReplace by remember { mutableStateOf<MatchResult?>(null) }
 
     LaunchedEffect(need.id) {
         viewModel.selectNeedForMatching(need)
@@ -71,7 +64,7 @@ fun MatchingResultsScreen(
             ) {
                 FilterChip(
                     selected = filterZone != null,
-                    onClick = { filterZone = if (filterZone == null) Catalog.Zone.COLCHAGUA else null },
+                    onClick = { filterZone = if (filterZone == null) need.zoneCode else null },
                     label = { Text("Solo mi zona") }
                 )
                 FilterChip(
@@ -96,15 +89,86 @@ fun MatchingResultsScreen(
                     CircularProgressIndicator()
                 }
             } else {
+                if (state.error != null) {
+                    Text(
+                        text = state.error.orEmpty(),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+                val currentInterest = state.activeInterest
+                if (currentInterest?.status == InterestStatus.ACTIVE.value) {
+                    val selectedAlias = state.matchResults
+                        .firstOrNull { it.pilot.pilotId == currentInterest.pilotId }
+                        ?.pilot?.alias ?: "el piloto seleccionado"
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = "Interés activo con $selectedAlias. Si eliges otro piloto, cambiarás la selección.",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                } else if (currentInterest?.status == InterestStatus.COMPLETED.value) {
+                    val completedPilotAlias = state.matchResults
+                        .firstOrNull { it.pilot.pilotId == currentInterest.pilotId }
+                        ?.pilot?.alias ?: "el piloto"
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Servicio completado con $completedPilotAlias.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            if (state.hasRating) {
+                                Text("Ya valoraste este servicio.")
+                            } else {
+                                OutlinedButton(
+                                    onClick = { onNavigateToRating(currentInterest.id, completedPilotAlias) },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Valorar servicio")
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    if (state.filteredResults.isEmpty()) {
+                        item {
+                            Text(
+                                text = if (state.matchResults.isEmpty()) {
+                                    "Aún no hay pilotos con perfil de servicio registrado."
+                                } else {
+                                    "No hay pilotos que coincidan con estos filtros."
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
                     items(state.filteredResults) { result ->
+                        val interest = state.activeInterest
+                        val isSelected = interest?.status == InterestStatus.ACTIVE.value &&
+                            interest.pilotId == result.pilot.pilotId
+                        val isCompleted = interest?.status == InterestStatus.COMPLETED.value &&
+                            interest.pilotId == result.pilot.pilotId
                         MatchResultCard(
                             result = result,
-                            hasActiveInterest = state.activeInterest?.pilotId == result.pilot.pilotId,
+                            isSelected = isSelected,
+                            isCompleted = isCompleted,
+                            hasOtherActiveSelection = interest?.status == InterestStatus.ACTIVE.value && !isSelected,
                             onSelectPilot = {
-                                viewModel.manifestInterest(result.pilot.pilotId)
+                                if (interest?.status == InterestStatus.ACTIVE.value && !isSelected) {
+                                    pilotToReplace = result
+                                } else {
+                                    viewModel.manifestInterest(result.pilot.pilotId)
+                                }
                             },
                             onCompleteService = {
                                 viewModel.completeService()
@@ -115,12 +179,31 @@ fun MatchingResultsScreen(
             }
         }
     }
+
+    pilotToReplace?.let { result ->
+        AlertDialog(
+            onDismissRequest = { pilotToReplace = null },
+            title = { Text("Cambiar piloto seleccionado") },
+            text = { Text("El interés activo se reemplazará por una solicitud a ${result.pilot.alias}. ¿Quieres continuar?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pilotToReplace = null
+                    viewModel.manifestInterest(result.pilot.pilotId)
+                }) { Text("Cambiar piloto") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pilotToReplace = null }) { Text("Cancelar") }
+            }
+        )
+    }
 }
 
 @Composable
 private fun MatchResultCard(
     result: MatchResult,
-    hasActiveInterest: Boolean,
+    isSelected: Boolean,
+    isCompleted: Boolean,
+    hasOtherActiveSelection: Boolean,
     onSelectPilot: () -> Unit,
     onCompleteService: () -> Unit
 ) {
@@ -161,7 +244,11 @@ private fun MatchResultCard(
                 text = when (result.compatibility) {
                     MatchResult.Compatibility.FULL -> "[OK] Coincide en zona, cultivo y tiene capacidad."
                     MatchResult.Compatibility.PARTIAL -> "[Alerta] Coincide, pero la capacidad o fechas no son suficientes."
-                    MatchResult.Compatibility.UNKNOWN -> "[Duda] Faltan datos para confirmar compatibilidad."
+                    MatchResult.Compatibility.UNKNOWN -> if (!result.availabilityKnown) {
+                        "[Duda] El piloto aún no informó su disponibilidad."
+                    } else {
+                        "[Duda] Faltan datos para confirmar compatibilidad."
+                    }
                     MatchResult.Compatibility.INCOMPATIBLE -> "[X] No cubre la zona o el cultivo."
                 },
                 color = borderColor,
@@ -172,24 +259,38 @@ private fun MatchResultCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = "Capacidad: ${result.pilot.hectaresPerHour} ha/h - ${result.pilot.workingHoursPerDay} h/dia")
             Text(text = "Requerido: ${String.format("%.1f", result.requiredHours)} horas de vuelo estimadas.")
+            if (!result.availabilityKnown) {
+                Text("Disponibilidad: por confirmar")
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Botón para manifestar interés
-                Button(
-                    onClick = onSelectPilot,
-                    enabled = !hasActiveInterest && result.compatibility != MatchResult.Compatibility.INCOMPATIBLE,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (hasActiveInterest) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                if (isCompleted) {
+                    Text(
+                        text = "Servicio completado",
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.Bold
                     )
-                ) {
-                    Text(if (hasActiveInterest) "Piloto Seleccionado" else "Manifestar Interés")
+                } else {
+                    Button(
+                        onClick = onSelectPilot,
+                        enabled = !isSelected && result.compatibility != MatchResult.Compatibility.INCOMPATIBLE,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text(when {
+                            isSelected -> "Piloto seleccionado"
+                            hasOtherActiveSelection -> "Cambiar piloto"
+                            else -> "Manifestar interés"
+                        })
+                    }
                 }
 
-                // Botón para finalizar (Solo aparece si este es el piloto seleccionado)
-                if (hasActiveInterest) {
+                if (isSelected) {
                     OutlinedButton(
                         onClick = onCompleteService,
                         modifier = Modifier.fillMaxWidth(),

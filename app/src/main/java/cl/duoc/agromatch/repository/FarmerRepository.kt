@@ -8,6 +8,10 @@ import cl.duoc.agromatch.database.PilotSpecialtyDao
 import cl.duoc.agromatch.database.RatingDao
 import cl.duoc.agromatch.model.*
 import kotlinx.coroutines.flow.Flow
+import java.text.ParsePosition
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 class FarmerRepository(
     private val needDao: NeedDao,
@@ -58,6 +62,14 @@ class FarmerRepository(
 
     suspend fun getActiveInterest(needId: Long): Interest? {
         return interestDao.findByNeedAndStatus(needId)
+    }
+
+    suspend fun getLatestInterest(needId: Long): Interest? {
+        return interestDao.getLatestByNeed(needId)
+    }
+
+    suspend fun hasRating(interestId: Long): Boolean {
+        return ratingDao.findByInterestId(interestId) != null
     }
 
     suspend fun manifestInterest(needId: Long, pilotId: Long, currentEpochDay: Long): Long {
@@ -136,6 +148,11 @@ class FarmerRepository(
         return profiles.map { entry ->
             val profile = entry.profile
             val ratings = ratingMap[profile.userId]
+            val hasAvailabilityDates = profile.availableFrom != null || profile.availableTo != null
+            val availableStartDay = profile.availableFrom?.let(::parseEpochDay)
+                ?: if (hasAvailabilityDates) Long.MIN_VALUE else null
+            val availableEndDay = profile.availableTo?.let(::parseEpochDay)
+                ?: if (hasAvailabilityDates) Long.MAX_VALUE else null
 
             object : PilotSnapshot {
                 override val pilotId = profile.userId
@@ -146,9 +163,19 @@ class FarmerRepository(
                 override val specialties = specialtyMap[profile.userId]?.map { it.specialtyCode }?.toSet() ?: emptySet()
                 override val avgRating = ratings?.avgScore
                 override val ratingCount = ratings?.count ?: 0
-                override val availableStartDay = 0L
-                override val availableEndDay = Long.MAX_VALUE
+                override val availableStartDay = availableStartDay
+                override val availableEndDay = availableEndDay
             }
         }
+    }
+
+    private fun parseEpochDay(value: String): Long? {
+        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
+            isLenient = false
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        val position = ParsePosition(0)
+        val date = formatter.parse(value, position)?.takeIf { position.index == value.length } ?: return null
+        return date.time / 86_400_000L
     }
 }

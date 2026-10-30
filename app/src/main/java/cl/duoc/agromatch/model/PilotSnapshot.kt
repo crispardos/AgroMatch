@@ -19,6 +19,6 @@ interface PilotSnapshot {
     val ratingCount: Int
 
     // Rango de días disponibles en epochDay (inclusivo)
-    val availableStartDay: Long
-    val availableEndDay: Long
+    val availableStartDay: Long?
+    val availableEndDay: Long?
 }

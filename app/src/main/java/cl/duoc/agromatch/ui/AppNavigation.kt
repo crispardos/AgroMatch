@@ -1,5 +1,6 @@
 package cl.duoc.agromatch.ui
 
+import android.net.Uri
 import android.R.attr.type
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -103,13 +104,16 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
             state.user?.let { user ->
                 val farmerFactory = remember(user.id) { factory.forFarmer(user.id) }
                 val farmerViewModel: FarmerViewModel = viewModel(factory = farmerFactory)
+                val farmerState by farmerViewModel.state.collectAsStateWithLifecycle()
 
                 cl.duoc.agromatch.ui.farmer.NeedFormScreen(
                     farmerId = user.id,
+                    isSaving = farmerState.isLoading,
+                    error = farmerState.error,
+                    onClearError = farmerViewModel::clearError,
                     onNavigateBack = { navController.popBackStack() },
                     onSave = { need ->
-                        farmerViewModel.createNeed(need)
-                        navController.popBackStack()
+                        farmerViewModel.createNeed(need) { navController.popBackStack() }
                     }
                 )
             }
@@ -134,7 +138,7 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                         need = need,
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToRating = { interestId, pilotAlias ->
-                            navController.navigate("rating/$interestId/$pilotAlias")
+                            navController.navigate("rating/$interestId/${Uri.encode(pilotAlias)}")
                         }
                     )
                 } else {

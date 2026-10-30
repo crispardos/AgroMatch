@@ -2,6 +2,7 @@ package cl.duoc.agromatch.ui.farmer
 
 import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -24,9 +25,14 @@ import java.util.*
 @Composable
 fun NeedFormScreen(
     farmerId: Long,
+    isSaving: Boolean,
+    error: String?,
+    onClearError: () -> Unit,
     onNavigateBack: () -> Unit,
     onSave: (Need) -> Unit
 ) {
+    BackHandler(enabled = isSaving) { }
+
     var hectaresText by remember { mutableStateOf("") }
     var selectedCrop by remember { mutableStateOf(Catalog.Crop.VINEYARD) }
     var selectedZone by remember { mutableStateOf(Catalog.Zone.COLCHAGUA) }
@@ -35,8 +41,8 @@ fun NeedFormScreen(
     var startDateMillis by remember { mutableStateOf<Long?>(null) }
     var endDateMillis by remember { mutableStateOf<Long?>(null) }
 
-    var showError by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var showValidationError by remember { mutableStateOf(false) }
+    var validationError by remember { mutableStateOf("") }
 
     val context = LocalContext.current
     val dateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
@@ -67,7 +73,7 @@ fun NeedFormScreen(
             TopAppBar(
                 title = { Text("Nueva Necesidad") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = onNavigateBack, enabled = !isSaving) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 }
@@ -170,16 +176,21 @@ fun NeedFormScreen(
                 }
             }
 
-            if (showError) {
-                Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
+            if (showValidationError) {
+                Text(text = validationError, color = MaterialTheme.colorScheme.error)
+            }
+            if (error != null) {
+                Text(text = error, color = MaterialTheme.colorScheme.error)
             }
 
             Button(
+                enabled = !isSaving,
                 onClick = {
+                    onClearError()
                     val hectares = hectaresText.replace(',', '.').toDoubleOrNull()
                     if (hectares == null || startDateMillis == null || endDateMillis == null) {
-                        showError = true
-                        errorMessage = "Por favor completa todos los campos correctamente."
+                        showValidationError = true
+                        validationError = "Por favor completa todos los campos correctamente."
                         return@Button
                     }
 
@@ -194,15 +205,17 @@ fun NeedFormScreen(
 
                     val errors = AgroMatchValidator.validateNeed(newNeed)
                     if (errors.isNotEmpty()) {
-                        showError = true
-                        errorMessage = "Revisa las fechas y las hectáreas ingresadas."
+                        showValidationError = true
+                        validationError = "Revisa las fechas y las hectáreas ingresadas."
                     } else {
+                        showValidationError = false
                         onSave(newNeed)
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Guardar Necesidad")
+                if (isSaving) CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                else Text("Guardar Necesidad")
             }
         }
     }

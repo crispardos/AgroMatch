@@ -1,6 +1,7 @@
 package cl.duoc.agromatch.ui.farmer
 
 import androidx.compose.foundation.layout.*
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Star
@@ -25,13 +26,14 @@ fun RatingScreen(
     var score by remember { mutableStateOf(0) }
     var comment by remember { mutableStateOf("") }
     val state by viewModel.state.collectAsState()
+    BackHandler(enabled = state.isLoading) { }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Valorar Servicio") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = onNavigateBack, enabled = !state.isLoading) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                     }
                 }
@@ -88,8 +90,7 @@ fun RatingScreen(
             Button(
                 onClick = {
                     if (score > 0) {
-                        viewModel.saveRating(score, comment.ifBlank { null })
-                        onRatingSaved()
+                        viewModel.saveRating(score, comment.ifBlank { null }, onRatingSaved)
                     }
                 },
                 enabled = score > 0 && !state.isLoading,
