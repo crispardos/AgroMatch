@@ -12,6 +12,8 @@
     <string name="register_action">Crear cuenta</string>
     <string name="go_to_register">¿No tienes cuenta? Regístrate</string>
     <string name="go_to_login">Ya tengo una cuenta</string>
+    <string name="auth_login_subtitle">Tu próximo servicio agrícola empieza aquí.</string>
+    <string name="auth_register_subtitle">Únete a la comunidad del trabajo agrícola con drones.</string>
     <string name="logout_action">Cerrar sesión</string>
     <string name="welcome_alias">Hola, %1$s</string>
     <string name="role_farmer_home">Espacio del agricultor</string>

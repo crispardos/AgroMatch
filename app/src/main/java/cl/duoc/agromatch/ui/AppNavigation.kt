@@ -67,6 +67,7 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
             LoginScreen(
                 isWorking = state.isWorking,
                 error = state.error,
+                onClearError = authViewModel::clearError,
                 onLogin = authViewModel::login,
                 onRegisterClick = {
                     authViewModel.clearError()
@@ -78,6 +79,7 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
             RegisterScreen(
                 isWorking = state.isWorking,
                 error = state.error,
+                onClearError = authViewModel::clearError,
                 onRegister = authViewModel::register,
                 onLoginClick = {
                     authViewModel.clearError()
