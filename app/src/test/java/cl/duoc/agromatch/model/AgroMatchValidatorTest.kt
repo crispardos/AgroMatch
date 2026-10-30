@@ -204,6 +204,23 @@ class AgroMatchValidatorTest {
     }
 
     @Test
+    fun `interes reemplazado no se puede completar`() {
+        val interest = Interest(
+            needId = 1L,
+            pilotId = 2L,
+            status = InterestStatus.REPLACED.value,
+            createdEpochDay = 20_000L
+        )
+
+        val errors = AgroMatchValidator.validateCompleteInterest(
+            interest,
+            InterestStatus.REPLACED.value
+        )
+
+        assertTrue(errors.contains(AgroMatchValidator.InterestError.InterestNotActive))
+    }
+
+    @Test
     fun `completar interes sin piloto falla`() {
         val interest = Interest(
             needId = 1L,

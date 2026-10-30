@@ -17,6 +17,7 @@ class AgroMatchContainer(context: Context) {
         pilotProfileDao = database.pilotProfileDao(),
         pilotCoverageDao = database.pilotCoverageDao(),
         pilotSpecialtyDao = database.pilotSpecialtyDao(),
+        interestDao = database.interestDao(),
         authRepository = authRepository
     )
 
@@ -26,6 +27,9 @@ class AgroMatchContainer(context: Context) {
         ratingDao = database.ratingDao(),
         pilotProfileDao = database.pilotProfileDao(),
         pilotCoverageDao = database.pilotCoverageDao(),
-        pilotSpecialtyDao = database.pilotSpecialtyDao()
+        pilotSpecialtyDao = database.pilotSpecialtyDao(),
+        database = database,
+        needPhotoDao = database.needPhotoDao(),
+        photoStorage = NeedPhotoStorage(context.applicationContext)
     )
 }

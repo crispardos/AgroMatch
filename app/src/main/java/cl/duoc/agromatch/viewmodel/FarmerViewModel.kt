@@ -1,7 +1,9 @@
 package cl.duoc.agromatch.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import cl.duoc.agromatch.database.FarmerNeedOverview
 import cl.duoc.agromatch.model.*
 import cl.duoc.agromatch.repository.FarmerRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,10 +13,13 @@ import kotlinx.coroutines.launch
 
 data class FarmerUiState(
     val needs: List<Need> = emptyList(),
+    val needOverviews: List<FarmerNeedOverview> = emptyList(),
     val currentNeed: Need? = null,
     val matchResults: List<MatchResult> = emptyList(),
     val filteredResults: List<MatchResult> = emptyList(),
     val activeInterest: Interest? = null,
+    val ratingInterestId: Long? = null,
+    val hasRating: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -35,8 +40,12 @@ class FarmerViewModel(
         viewModelScope.launch {
             mutableState.value = mutableState.value.copy(isLoading = true, error = null)
             try {
-                repository.getNeedsByFarmer(farmerId).collect { needs ->
-                    mutableState.value = mutableState.value.copy(needs = needs, isLoading = false)
+                repository.getNeedOverviewsByFarmer(farmerId).collect { overviews ->
+                    mutableState.value = mutableState.value.copy(
+                        needs = overviews.map { it.need },
+                        needOverviews = overviews,
+                        isLoading = false
+                    )
                 }
             } catch (e: Exception) {
                 mutableState.value = mutableState.value.copy(isLoading = false, error = "Error al cargar necesidades")
@@ -44,12 +53,13 @@ class FarmerViewModel(
         }
     }
 
-    fun createNeed(need: Need) {
+    fun createNeed(need: Need, photoUris: List<Uri>, onSaved: () -> Unit) {
         viewModelScope.launch {
             mutableState.value = mutableState.value.copy(isLoading = true, error = null)
             try {
-                repository.createNeed(need)
+                repository.createNeed(need, photoUris)
                 mutableState.value = mutableState.value.copy(isLoading = false)
+                onSaved()
             } catch (e: Exception) {
                 mutableState.value = mutableState.value.copy(isLoading = false, error = e.message)
             }
@@ -62,14 +72,17 @@ class FarmerViewModel(
             try {
                 val pilots = repository.getAllPilotsForMatching()
                 val results = repository.calculateMatches(need, pilots)
+                val interest = repository.getLatestInterest(need.id)
+                val hasRating = interest?.let { repository.hasRating(it.id) } ?: false
 
                 mutableState.value = mutableState.value.copy(
                     currentNeed = need,
                     matchResults = results,
                     filteredResults = results,
+                    activeInterest = interest,
+                    hasRating = hasRating,
                     isLoading = false
                 )
-                loadActiveInterest(need.id)
             } catch (e: Exception) {
                 mutableState.value = mutableState.value.copy(isLoading = false, error = "Error al buscar pilotos: ${e.message}")
             }
@@ -88,8 +101,13 @@ class FarmerViewModel(
             try {
                 val currentEpochDay = System.currentTimeMillis() / 86_400_000L
                 repository.manifestInterest(needId, pilotId, currentEpochDay)
-                loadActiveInterest(needId)
-                mutableState.value = mutableState.value.copy(isLoading = false)
+                val interest = repository.getLatestInterest(needId)
+                val hasRating = interest?.let { repository.hasRating(it.id) } ?: false
+                mutableState.value = mutableState.value.copy(
+                    activeInterest = interest,
+                    hasRating = hasRating,
+                    isLoading = false
+                )
             } catch (e: Exception) {
                 mutableState.value = mutableState.value.copy(isLoading = false, error = "Error al manifestar interés")
             }
@@ -104,13 +122,12 @@ class FarmerViewModel(
             try {
                 val currentEpochDay = System.currentTimeMillis() / 86_400_000L
                 repository.completeInterest(interestId, currentEpochDay)
-                val updatedInterest = repository.getActiveInterest(needId)
+                val updatedInterest = repository.getLatestInterest(needId)
+                val hasRating = updatedInterest?.let { repository.hasRating(it.id) } ?: false
                 mutableState.value = mutableState.value.copy(
                     isLoading = false,
-                    activeInterest = mutableState.value.activeInterest?.copy(
-                        status = InterestStatus.COMPLETED.value,
-                        completedEpochDay = currentEpochDay
-                    )
+                    activeInterest = updatedInterest,
+                    hasRating = hasRating
                 )
             } catch (e: Exception) {
                 mutableState.value = mutableState.value.copy(isLoading = false, error = "Error al finalizar servicio")
@@ -118,39 +135,25 @@ class FarmerViewModel(
         }
     }
 
-    fun saveRating(score: Int, comment: String?) {
-        val interestId = mutableState.value.activeInterest?.id ?: return
+    fun saveRating(score: Int, comment: String?, onSaved: () -> Unit) {
+        val interestId = mutableState.value.ratingInterestId
+            ?: mutableState.value.activeInterest?.id
+            ?: return
         viewModelScope.launch {
             mutableState.value = mutableState.value.copy(isLoading = true, error = null)
             try {
                 val currentEpochDay = System.currentTimeMillis() / 86_400_000L
                 repository.saveRating(interestId, score, comment, currentEpochDay)
                 mutableState.value = mutableState.value.copy(isLoading = false)
+                onSaved()
             } catch (e: Exception) {
                 mutableState.value = mutableState.value.copy(isLoading = false, error = e.message)
             }
         }
     }
 
-    private fun loadActiveInterest(needId: Long) {
-        viewModelScope.launch {
-            val interest = repository.getActiveInterest(needId)
-            mutableState.value = mutableState.value.copy(activeInterest = interest)
-        }
-    }
-
     fun setActiveInterestId(interestId: Long) {
-        if (mutableState.value.activeInterest?.id != interestId) {
-            mutableState.value = mutableState.value.copy(
-                activeInterest = Interest(
-                    id = interestId,
-                    needId = 0L,
-                    pilotId = 0L,
-                    status = InterestStatus.COMPLETED.value,
-                    createdEpochDay = 0L
-                )
-            )
-        }
+        mutableState.value = mutableState.value.copy(ratingInterestId = interestId, error = null)
     }
     fun clearError() {
         mutableState.value = mutableState.value.copy(error = null)

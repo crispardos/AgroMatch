@@ -23,8 +23,8 @@ class MatchingTest {
         zones: Set<String> = setOf(Catalog.Zone.COLCHAGUA),
         specialties: Set<String> = setOf(Catalog.Crop.VINEYARD),
         avgRating: Double? = 4.5,
-        availStart: Long = 100L,
-        availEnd: Long = 103L
+        availStart: Long? = 100L,
+        availEnd: Long? = 103L
     ) = object : PilotSnapshot {
         override val pilotId = id
         override val alias = alias
@@ -97,6 +97,16 @@ class MatchingTest {
 
         assertEquals(MatchResult.Compatibility.FULL, results.first().compatibility)
         assertTrue(results.first().hasCapacity)
+    }
+
+    @Test
+    fun `disponibilidad no informada no se considera compatibilidad total`() {
+        val pilot = fakePilot(availStart = null, availEnd = null)
+        val result = MatchingCalculator.calculate(need, listOf(pilot)).first()
+
+        assertEquals(MatchResult.Compatibility.UNKNOWN, result.compatibility)
+        assertTrue(!result.availabilityKnown)
+        assertTrue(!result.hasCapacity)
     }
 
     // --- Pruebas de ordenamiento ---

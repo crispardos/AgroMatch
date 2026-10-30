@@ -7,6 +7,8 @@ import androidx.room.PrimaryKey
 
 enum class InterestStatus(val value: String) {
     ACTIVE("ACTIVE"),
+    ACCEPTED("ACCEPTED"),
+    REPLACED("REPLACED"),
     COMPLETED("COMPLETED");
 
     companion object {
@@ -33,8 +35,7 @@ enum class InterestStatus(val value: String) {
     ],
     indices = [
         Index("needId"),
-        Index("pilotId"),
-        Index(value = ["needId", "pilotId"], unique = true)
+        Index("pilotId")
     ]
 )
 data class Interest(

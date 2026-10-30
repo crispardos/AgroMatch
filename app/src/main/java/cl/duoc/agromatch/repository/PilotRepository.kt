@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import cl.duoc.agromatch.database.AgroMatchDatabase
 import cl.duoc.agromatch.database.PilotCoverageDao
 import cl.duoc.agromatch.database.PilotDirectoryEntry
+import cl.duoc.agromatch.database.InterestDao
+import cl.duoc.agromatch.database.PilotRequestSummary
 import cl.duoc.agromatch.database.PilotProfileDao
 import cl.duoc.agromatch.database.PilotSpecialtyDao
 import cl.duoc.agromatch.database.UserDao
@@ -11,6 +13,7 @@ import cl.duoc.agromatch.model.Catalog
 import cl.duoc.agromatch.model.PilotCoverage
 import cl.duoc.agromatch.model.PilotProfile
 import cl.duoc.agromatch.model.PilotSpecialty
+import cl.duoc.agromatch.model.InterestStatus
 import cl.duoc.agromatch.model.UserRole
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +33,7 @@ enum class PilotFailure {
     USER_NOT_FOUND,
     USER_NOT_PILOT,
     SESSION_REQUIRED,
+    REQUEST_NOT_AVAILABLE,
     STORAGE_ERROR
 }
 
@@ -39,6 +43,7 @@ class PilotRepository(
     private val pilotProfileDao: PilotProfileDao,
     private val pilotCoverageDao: PilotCoverageDao,
     private val pilotSpecialtyDao: PilotSpecialtyDao,
+    private val interestDao: InterestDao,
     private val authRepository: AuthRepository
 ) {
     fun observeDirectory(): Flow<List<PilotDirectoryEntry>> =
@@ -58,6 +63,22 @@ class PilotRepository(
 
     fun observeSpecialties(pilotId: Long): Flow<List<PilotSpecialty>> =
         pilotSpecialtyDao.observeByPilotId(pilotId)
+
+    fun observeRequests(pilotId: Long): Flow<List<PilotRequestSummary>> =
+        interestDao.observeRequestsForPilot(pilotId)
+
+    suspend fun acceptRequest(pilotId: Long, interestId: Long): Boolean {
+        val currentUser = authRepository.restoreSession() ?: return false
+        if (currentUser.id != pilotId || currentUser.role != UserRole.PILOT.value) return false
+        return database.withTransaction {
+            interestDao.acceptPendingRequest(
+                interestId = interestId,
+                pilotId = pilotId,
+                pendingStatus = InterestStatus.ACTIVE.value,
+                acceptedStatus = InterestStatus.ACCEPTED.value
+            ) == 1
+        }
+    }
 
     suspend fun saveProfile(
         profile: PilotProfile,

@@ -1,13 +1,22 @@
 package cl.duoc.agromatch.repository
 
+import android.net.Uri
+import androidx.room.withTransaction
+import cl.duoc.agromatch.database.AgroMatchDatabase
 import cl.duoc.agromatch.database.InterestDao
+import cl.duoc.agromatch.database.FarmerNeedOverview
 import cl.duoc.agromatch.database.NeedDao
 import cl.duoc.agromatch.database.PilotCoverageDao
 import cl.duoc.agromatch.database.PilotProfileDao
 import cl.duoc.agromatch.database.PilotSpecialtyDao
 import cl.duoc.agromatch.database.RatingDao
+import cl.duoc.agromatch.database.NeedPhotoDao
 import cl.duoc.agromatch.model.*
 import kotlinx.coroutines.flow.Flow
+import java.text.ParsePosition
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 class FarmerRepository(
     private val needDao: NeedDao,
@@ -15,7 +24,10 @@ class FarmerRepository(
     private val ratingDao: RatingDao,
     private val pilotProfileDao: PilotProfileDao,
     private val pilotCoverageDao: PilotCoverageDao,
-    private val pilotSpecialtyDao: PilotSpecialtyDao
+    private val pilotSpecialtyDao: PilotSpecialtyDao,
+    private val database: AgroMatchDatabase,
+    private val needPhotoDao: NeedPhotoDao,
+    private val photoStorage: NeedPhotoStorage
 ) {
 
     // --- NECESIDADES ---
@@ -24,16 +36,37 @@ class FarmerRepository(
         return needDao.getNeedsByFarmer(farmerId)
     }
 
+    fun getNeedOverviewsByFarmer(farmerId: Long): Flow<List<FarmerNeedOverview>> {
+        return needDao.observeOverviewsByFarmer(farmerId)
+    }
+
     suspend fun getNeedById(needId: Long): Need? {
         return needDao.findById(needId)
     }
 
-    suspend fun createNeed(need: Need): Long {
+    suspend fun createNeed(need: Need, photoUris: List<Uri> = emptyList()): Long {
         val errors = AgroMatchValidator.validateNeed(need)
         if (errors.isNotEmpty()) {
             throw IllegalArgumentException("Necesidad inválida: $errors")
         }
-        return needDao.insert(need)
+        require(photoUris.size <= MAX_PHOTOS_PER_NEED) { "Puedes adjuntar hasta $MAX_PHOTOS_PER_NEED fotos por terreno." }
+
+        val copiedPhotoPaths = mutableListOf<String>()
+        return try {
+            database.withTransaction {
+                val needId = needDao.insert(need)
+                val photos = photoUris.mapIndexed { index, uri ->
+                    val file = photoStorage.copyIntoNeed(uri, needId)
+                    copiedPhotoPaths += file.absolutePath
+                    NeedPhoto(needId = needId, filePath = file.absolutePath, sortOrder = index)
+                }
+                if (photos.isNotEmpty()) needPhotoDao.insertAll(photos)
+                needId
+            }
+        } catch (exception: Exception) {
+            copiedPhotoPaths.forEach(photoStorage::delete)
+            throw exception
+        }
     }
 
     // --- MATCHING Y PILOTOS ---
@@ -58,6 +91,14 @@ class FarmerRepository(
 
     suspend fun getActiveInterest(needId: Long): Interest? {
         return interestDao.findByNeedAndStatus(needId)
+    }
+
+    suspend fun getLatestInterest(needId: Long): Interest? {
+        return interestDao.getLatestByNeed(needId)
+    }
+
+    suspend fun hasRating(interestId: Long): Boolean {
+        return ratingDao.findByInterestId(interestId) != null
     }
 
     suspend fun manifestInterest(needId: Long, pilotId: Long, currentEpochDay: Long): Long {
@@ -136,6 +177,11 @@ class FarmerRepository(
         return profiles.map { entry ->
             val profile = entry.profile
             val ratings = ratingMap[profile.userId]
+            val hasAvailabilityDates = profile.availableFrom != null || profile.availableTo != null
+            val availableStartDay = profile.availableFrom?.let(::parseEpochDay)
+                ?: if (hasAvailabilityDates) Long.MIN_VALUE else null
+            val availableEndDay = profile.availableTo?.let(::parseEpochDay)
+                ?: if (hasAvailabilityDates) Long.MAX_VALUE else null
 
             object : PilotSnapshot {
                 override val pilotId = profile.userId
@@ -146,9 +192,19 @@ class FarmerRepository(
                 override val specialties = specialtyMap[profile.userId]?.map { it.specialtyCode }?.toSet() ?: emptySet()
                 override val avgRating = ratings?.avgScore
                 override val ratingCount = ratings?.count ?: 0
-                override val availableStartDay = 0L
-                override val availableEndDay = Long.MAX_VALUE
+                override val availableStartDay = availableStartDay
+                override val availableEndDay = availableEndDay
             }
         }
+    }
+
+    private fun parseEpochDay(value: String): Long? {
+        val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
+            isLenient = false
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        val position = ParsePosition(0)
+        val date = formatter.parse(value, position)?.takeIf { position.index == value.length } ?: return null
+        return date.time / 86_400_000L
     }
 }

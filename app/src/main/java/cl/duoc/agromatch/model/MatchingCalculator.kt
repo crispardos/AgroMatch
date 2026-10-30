@@ -33,12 +33,17 @@ object MatchingCalculator {
         }
 
         // 2. Cálculo de días disponibles (diferencia entre fechas)
-        val availableDays = calculateAvailableDays(
-            needStart = need.startEpochDay,
-            needEnd = need.endEpochDay,
-            pilotStart = pilot.availableStartDay,
-            pilotEnd = pilot.availableEndDay
-        )
+        val availabilityKnown = pilot.availableStartDay != null && pilot.availableEndDay != null
+        val availableDays = if (availabilityKnown) {
+            calculateAvailableDays(
+                needStart = need.startEpochDay,
+                needEnd = need.endEpochDay,
+                pilotStart = pilot.availableStartDay!!,
+                pilotEnd = pilot.availableEndDay!!
+            )
+        } else {
+            0
+        }
 
         val availableWorkHours = availableDays * pilot.workingHoursPerDay
         val hasCapacity = availableWorkHours >= requiredHours && availableDays > 0
@@ -50,6 +55,7 @@ object MatchingCalculator {
         // 4. Determinar compatibilidad
         val compatibility = when {
             !zoneMatches || !specialtyMatches -> MatchResult.Compatibility.INCOMPATIBLE
+            !availabilityKnown -> MatchResult.Compatibility.UNKNOWN
             !hasCapacity -> MatchResult.Compatibility.PARTIAL
             else -> MatchResult.Compatibility.FULL
         }
@@ -61,6 +67,7 @@ object MatchingCalculator {
             specialtyMatches = specialtyMatches,
             hasCapacity = hasCapacity,
             hasAvailability = availableDays > 0,
+            availabilityKnown = availabilityKnown,
             requiredHours = requiredHours,
             availableWorkHours = availableWorkHours,
             availableDays = availableDays

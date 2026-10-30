@@ -1,60 +1,130 @@
 package cl.duoc.agromatch.ui.farmer
 
 import android.app.DatePickerDialog
+import android.content.ActivityNotFoundException
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import cl.duoc.agromatch.R
 import cl.duoc.agromatch.model.Catalog
+import cl.duoc.agromatch.model.MAX_PHOTOS_PER_NEED
 import cl.duoc.agromatch.model.Need
 import cl.duoc.agromatch.model.AgroMatchValidator
-import java.text.SimpleDateFormat
-import java.util.*
+import cl.duoc.agromatch.ui.epochDayFromPickerDate
+import cl.duoc.agromatch.ui.formatEpochDay
+import java.util.Calendar
+import java.util.TimeZone
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NeedFormScreen(
     farmerId: Long,
+    isSaving: Boolean,
+    error: String?,
+    onClearError: () -> Unit,
     onNavigateBack: () -> Unit,
-    onSave: (Need) -> Unit
+    onSave: (Need, List<Uri>) -> Unit
 ) {
+    BackHandler(enabled = isSaving) { }
+
     var hectaresText by remember { mutableStateOf("") }
     var selectedCrop by remember { mutableStateOf(Catalog.Crop.VINEYARD) }
     var selectedZone by remember { mutableStateOf(Catalog.Zone.COLCHAGUA) }
 
-    // Fechas en milisegundos (Long)
-    var startDateMillis by remember { mutableStateOf<Long?>(null) }
-    var endDateMillis by remember { mutableStateOf<Long?>(null) }
+    var startEpochDay by remember { mutableStateOf<Long?>(null) }
+    var endEpochDay by remember { mutableStateOf<Long?>(null) }
 
-    var showError by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
+    var showValidationError by remember { mutableStateOf(false) }
+    var validationError by remember { mutableStateOf("") }
+    val selectedPhotoUris = remember { mutableStateListOf<Uri>() }
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingCameraFile by remember { mutableStateOf<File?>(null) }
+    var photoError by remember { mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
-    val dateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
-
-    // Convertir de milisegundos a epochDay para la base de datos
-    fun toEpochDay(millis: Long?): Long {
-        return millis?.let { it / 86_400_000L } ?: -1L
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(MAX_PHOTOS_PER_NEED)
+    ) { selectedUris ->
+        photoError = null
+        val remainingSlots = MAX_PHOTOS_PER_NEED - selectedPhotoUris.size
+        val uniqueUris = selectedUris.distinct().filterNot(selectedPhotoUris::contains)
+        uniqueUris.take(remainingSlots).forEach(selectedPhotoUris::add)
+        if (uniqueUris.size > remainingSlots) {
+            photoError = context.getString(R.string.need_photos_limit)
+        }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        val outputUri = pendingCameraUri
+        val outputFile = pendingCameraFile
+        if (success && outputUri != null && selectedPhotoUris.size < MAX_PHOTOS_PER_NEED) {
+            selectedPhotoUris.add(outputUri)
+            photoError = null
+        } else {
+            outputFile?.delete()
+        }
+        pendingCameraUri = null
+        pendingCameraFile = null
     }
 
-    fun showDatePicker(initialMillis: Long?, onDateSelected: (Long) -> Unit) {
-        val calendar = Calendar.getInstance()
-        initialMillis?.let { calendar.timeInMillis = it }
+    fun startCameraCapture() {
+        try {
+            val cameraDirectory = File(context.cacheDir, "need_camera")
+            check(cameraDirectory.exists() || cameraDirectory.mkdirs())
+            val outputFile = File.createTempFile("capture_", ".jpg", cameraDirectory)
+            val outputUri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                outputFile
+            )
+            pendingCameraUri = outputUri
+            pendingCameraFile = outputFile
+            cameraLauncher.launch(outputUri)
+        } catch (_: ActivityNotFoundException) {
+            pendingCameraFile?.delete()
+            pendingCameraUri = null
+            pendingCameraFile = null
+            photoError = context.getString(R.string.need_photo_camera_unavailable)
+        } catch (_: Exception) {
+            pendingCameraFile?.delete()
+            pendingCameraUri = null
+            pendingCameraFile = null
+            photoError = context.getString(R.string.need_photo_capture_error)
+        }
+    }
+
+    fun showDatePicker(initialEpochDay: Long?, onDateSelected: (Long) -> Unit) {
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        initialEpochDay?.let { calendar.timeInMillis = it * 86_400_000L }
         DatePickerDialog(
             context,
             { _, year, month, dayOfMonth ->
-                val selected = Calendar.getInstance()
-                selected.set(year, month, dayOfMonth)
-                onDateSelected(selected.timeInMillis)
+                onDateSelected(epochDayFromPickerDate(year, month, dayOfMonth))
             },
             calendar.get(Calendar.YEAR),
             calendar.get(Calendar.MONTH),
@@ -63,14 +133,16 @@ fun NeedFormScreen(
     }
 
     Scaffold(
+        containerColor = FarmerBackground,
         topBar = {
             TopAppBar(
-                title = { Text("Nueva Necesidad") },
+                title = { Text("Nueva Necesidad", color = Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    IconButton(onClick = onNavigateBack, enabled = !isSaving) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = FarmerCharcoal)
             )
         }
     ) { paddingValues ->
@@ -94,7 +166,9 @@ fun NeedFormScreen(
                     readOnly = true,
                     label = { Text("Cultivo") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = cropExpanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = RectangleShape,
+                    colors = farmerFieldColors()
                 )
                 ExposedDropdownMenu(
                     expanded = cropExpanded,
@@ -124,7 +198,9 @@ fun NeedFormScreen(
                     readOnly = true,
                     label = { Text("Zona") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = zoneExpanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = RectangleShape,
+                    colors = farmerFieldColors()
                 )
                 ExposedDropdownMenu(
                     expanded = zoneExpanded,
@@ -145,10 +221,15 @@ fun NeedFormScreen(
             // Hectáreas
             OutlinedTextField(
                 value = hectaresText,
-                onValueChange = { hectaresText = it },
+                onValueChange = {
+                    hectaresText = it
+                    showValidationError = false
+                },
                 label = { Text("Hectáreas (ha)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = RectangleShape,
+                colors = farmerFieldColors()
             )
 
             // Fechas
@@ -157,29 +238,98 @@ fun NeedFormScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = { showDatePicker(startDateMillis) { startDateMillis = it } },
-                    modifier = Modifier.weight(1f)
+                    onClick = { showDatePicker(startEpochDay) { startEpochDay = it } },
+                    modifier = Modifier.weight(1f),
+                    shape = RectangleShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerBlue)
                 ) {
-                    Text(startDateMillis?.let { dateFormatter.format(Date(it)) } ?: "Fecha Inicio")
+                    Text(startEpochDay?.let(::formatEpochDay) ?: "Fecha Inicio")
                 }
                 OutlinedButton(
-                    onClick = { showDatePicker(endDateMillis) { endDateMillis = it } },
-                    modifier = Modifier.weight(1f)
+                    onClick = { showDatePicker(endEpochDay) { endEpochDay = it } },
+                    modifier = Modifier.weight(1f),
+                    shape = RectangleShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerBlue)
                 ) {
-                    Text(endDateMillis?.let { dateFormatter.format(Date(it)) } ?: "Fecha Fin")
+                    Text(endEpochDay?.let(::formatEpochDay) ?: "Fecha Fin")
                 }
             }
 
-            if (showError) {
-                Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
+            Text(
+                text = stringResource(R.string.need_photos_count, selectedPhotoUris.size, MAX_PHOTOS_PER_NEED),
+                style = MaterialTheme.typography.titleSmall,
+                color = FarmerCharcoal,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+            )
+            Text(
+                text = stringResource(R.string.need_photos_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = FarmerCharcoal.copy(alpha = 0.7f)
+            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    enabled = !isSaving && selectedPhotoUris.size < MAX_PHOTOS_PER_NEED,
+                    modifier = Modifier.weight(1f),
+                    shape = RectangleShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerBlue)
+                ) {
+                    Text(stringResource(R.string.need_photos_gallery))
+                }
+                OutlinedButton(
+                    onClick = ::startCameraCapture,
+                    enabled = !isSaving && selectedPhotoUris.size < MAX_PHOTOS_PER_NEED,
+                    modifier = Modifier.weight(1f),
+                    shape = RectangleShape,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerBlue)
+                ) {
+                    Text(stringResource(R.string.need_photos_camera))
+                }
+            }
+            if (selectedPhotoUris.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    itemsIndexed(selectedPhotoUris.toList(), key = { _, uri -> uri.toString() }) { index, uri ->
+                        Box(modifier = Modifier.size(88.dp)) {
+                            NeedPhotoThumbnail(
+                                uri = uri,
+                                contentDescription = stringResource(R.string.need_photo_description, index + 1),
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            IconButton(
+                                onClick = { selectedPhotoUris.remove(uri) },
+                                modifier = Modifier.align(Alignment.TopEnd).size(28.dp).background(FarmerCharcoal)
+                            ) {
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = stringResource(R.string.need_photo_remove),
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            photoError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+            if (showValidationError) {
+                Text(text = validationError, color = MaterialTheme.colorScheme.error)
+            }
+            if (error != null) {
+                Text(text = error, color = MaterialTheme.colorScheme.error)
             }
 
             Button(
+                enabled = !isSaving,
                 onClick = {
+                    onClearError()
                     val hectares = hectaresText.replace(',', '.').toDoubleOrNull()
-                    if (hectares == null || startDateMillis == null || endDateMillis == null) {
-                        showError = true
-                        errorMessage = "Por favor completa todos los campos correctamente."
+                    val startDay = startEpochDay
+                    val endDay = endEpochDay
+                    if (hectares == null || startDay == null || endDay == null) {
+                        showValidationError = true
+                        validationError = "Por favor completa todos los campos correctamente."
                         return@Button
                     }
 
@@ -188,22 +338,34 @@ fun NeedFormScreen(
                         cropCode = selectedCrop,
                         zoneCode = selectedZone,
                         hectares = hectares,
-                        startEpochDay = toEpochDay(startDateMillis),
-                        endEpochDay = toEpochDay(endDateMillis)
+                        startEpochDay = startDay,
+                        endEpochDay = endDay
                     )
 
                     val errors = AgroMatchValidator.validateNeed(newNeed)
                     if (errors.isNotEmpty()) {
-                        showError = true
-                        errorMessage = "Revisa las fechas y las hectáreas ingresadas."
+                        showValidationError = true
+                        validationError = "Revisa las fechas y las hectáreas ingresadas."
                     } else {
-                        onSave(newNeed)
+                        showValidationError = false
+                        onSave(newNeed, selectedPhotoUris.toList())
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
+                    .height(52.dp),
+                shape = RectangleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = FarmerBlue)
             ) {
-                Text("Guardar Necesidad")
+                if (isSaving) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White)
+                else Text("Guardar Necesidad")
             }
         }
     }
 }
+
+@Composable
+private fun farmerFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = FarmerBlue,
+    focusedLabelColor = FarmerBlue,
+    cursorColor = FarmerBlue
+)

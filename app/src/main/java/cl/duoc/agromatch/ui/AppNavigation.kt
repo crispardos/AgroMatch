@@ -1,5 +1,6 @@
 package cl.duoc.agromatch.ui
 
+import android.net.Uri
 import android.R.attr.type
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,8 @@ import cl.duoc.agromatch.ui.auth.LoginScreen
 import cl.duoc.agromatch.ui.auth.RegisterScreen
 import cl.duoc.agromatch.ui.pilot.PilotHomeScreen
 import cl.duoc.agromatch.ui.pilot.PilotProfileScreen
+import cl.duoc.agromatch.ui.pilot.PilotRequestDetailsScreen
+import cl.duoc.agromatch.ui.pilot.pilotErrorText
 import cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory
 import cl.duoc.agromatch.viewmodel.AuthViewModel
 import cl.duoc.agromatch.viewmodel.FarmerViewModel
@@ -66,6 +69,7 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
             LoginScreen(
                 isWorking = state.isWorking,
                 error = state.error,
+                onClearError = authViewModel::clearError,
                 onLogin = authViewModel::login,
                 onRegisterClick = {
                     authViewModel.clearError()
@@ -77,6 +81,7 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
             RegisterScreen(
                 isWorking = state.isWorking,
                 error = state.error,
+                onClearError = authViewModel::clearError,
                 onRegister = authViewModel::register,
                 onLoginClick = {
                     authViewModel.clearError()
@@ -95,6 +100,9 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                     onNavigateToMatching = { need ->
                         navController.navigate("$MATCHING_ROUTE/${need.id}")
                     },
+                    onNavigateToNeedDetails = { needId ->
+                        navController.navigate("$NEED_DETAILS_ROUTE/$needId")
+                    },
                     onLogout = authViewModel::logout
                 )
             }
@@ -103,15 +111,42 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
             state.user?.let { user ->
                 val farmerFactory = remember(user.id) { factory.forFarmer(user.id) }
                 val farmerViewModel: FarmerViewModel = viewModel(factory = farmerFactory)
+                val farmerState by farmerViewModel.state.collectAsStateWithLifecycle()
 
                 cl.duoc.agromatch.ui.farmer.NeedFormScreen(
                     farmerId = user.id,
+                    isSaving = farmerState.isLoading,
+                    error = farmerState.error,
+                    onClearError = farmerViewModel::clearError,
                     onNavigateBack = { navController.popBackStack() },
-                    onSave = { need ->
-                        farmerViewModel.createNeed(need)
-                        navController.popBackStack()
+                    onSave = { need, photoUris ->
+                        farmerViewModel.createNeed(need, photoUris) { navController.popBackStack() }
                     }
                 )
+            }
+        }
+        composable(
+            route = "$NEED_DETAILS_ROUTE/{needId}",
+            arguments = listOf(
+                androidx.navigation.navArgument("needId") { type = androidx.navigation.NavType.LongType }
+            )
+        ) { backStackEntry ->
+            val needId = backStackEntry.arguments?.getLong("needId") ?: 0L
+            state.user?.let { user ->
+                val farmerFactory = remember(user.id) { factory.forFarmer(user.id) }
+                val farmerViewModel: FarmerViewModel = viewModel(factory = farmerFactory)
+                val farmerState by farmerViewModel.state.collectAsStateWithLifecycle()
+                val overview = farmerState.needOverviews.firstOrNull { it.need.id == needId }
+
+                when {
+                    overview != null -> cl.duoc.agromatch.ui.farmer.NeedDetailsScreen(
+                        overview = overview,
+                        onNavigateBack = { navController.popBackStack() },
+                        onFindAnotherPilot = { navController.navigate("$MATCHING_ROUTE/$needId") }
+                    )
+                    farmerState.isLoading -> LoadingScreen()
+                    else -> Text("No se encontró el terreno.")
+                }
             }
         }
         composable(
@@ -134,7 +169,7 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                         need = need,
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToRating = { interestId, pilotAlias ->
-                            navController.navigate("rating/$interestId/$pilotAlias")
+                            navController.navigate("rating/$interestId/${Uri.encode(pilotAlias)}")
                         }
                     )
                 } else {
@@ -181,6 +216,9 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                         authViewModel.clearError()
                         navController.navigate(PILOT_PROFILE_ROUTE)
                     },
+                    onOpenRequest = { interestId ->
+                        navController.navigate("$PILOT_REQUEST_ROUTE/$interestId")
+                    },
                     onRetry = pilotViewModel::loadProfile,
                     onLogout = authViewModel::logout
                 )
@@ -200,11 +238,41 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                     onExperienceChange = pilotViewModel::updateExperience,
                     onHectaresChange = pilotViewModel::updateHectares,
                     onWorkingHoursChange = pilotViewModel::updateWorkingHours,
+                    onAvailabilityFromChange = pilotViewModel::updateAvailableFrom,
+                    onAvailabilityToChange = pilotViewModel::updateAvailableTo,
+                    onClearAvailability = pilotViewModel::clearAvailability,
                     onToggleZone = pilotViewModel::toggleZone,
                     onToggleSpecialty = pilotViewModel::toggleSpecialty,
                     onSave = pilotViewModel::saveProfile,
                     onBack = { navController.popBackStack() }
                 )
+            }
+        }
+        composable(
+            route = "$PILOT_REQUEST_ROUTE/{interestId}",
+            arguments = listOf(
+                androidx.navigation.navArgument("interestId") { type = androidx.navigation.NavType.LongType }
+            )
+        ) { entry ->
+            if (state.user?.role == UserRole.PILOT.value) {
+                val interestId = entry.arguments?.getLong("interestId") ?: 0L
+                val homeEntry = remember(entry) { navController.getBackStackEntry(PILOT_HOME_ROUTE) }
+                val pilotViewModel: PilotViewModel = viewModel(homeEntry, factory = factory)
+                val pilotState by pilotViewModel.state.collectAsStateWithLifecycle()
+                val request = pilotState.requests.firstOrNull { it.interestId == interestId }
+                val requestError = pilotState.error?.let { pilotErrorText(it) }
+
+                when {
+                    request != null -> PilotRequestDetailsScreen(
+                        request = request,
+                        isWorking = pilotState.isWorking,
+                        errorMessage = requestError,
+                        onNavigateBack = { navController.popBackStack() },
+                        onAcceptRequest = { pilotViewModel.acceptRequest(interestId) }
+                    )
+                    pilotState.isLoading -> LoadingScreen()
+                    else -> Text("No se encontró la solicitud.")
+                }
             }
         }
         composable(ADMIN_HOME_ROUTE) {
@@ -265,7 +333,9 @@ private const val REGISTER_ROUTE = "register"
 private const val FARMER_HOME_ROUTE = "farmer-home"
 private const val PILOT_HOME_ROUTE = "pilot-home"
 private const val PILOT_PROFILE_ROUTE = "pilot-profile"
+private const val PILOT_REQUEST_ROUTE = "pilot-request"
 private const val ADMIN_HOME_ROUTE = "admin-home"
 private const val NEED_FORM_ROUTE = "need-form"
+private const val NEED_DETAILS_ROUTE = "need-details"
 private const val MATCHING_ROUTE = "matching"
 private const val RATING_ROUTE = "rating/{interestId}/{pilotAlias}"

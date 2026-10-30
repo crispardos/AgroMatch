@@ -7,6 +7,7 @@ import cl.duoc.agromatch.model.PilotCoverage
 import cl.duoc.agromatch.model.PilotProfile
 import cl.duoc.agromatch.model.PilotSpecialty
 import cl.duoc.agromatch.model.UserRole
+import cl.duoc.agromatch.database.PilotRequestSummary
 import cl.duoc.agromatch.repository.AuthRepository
 import cl.duoc.agromatch.repository.PilotFailure
 import cl.duoc.agromatch.repository.PilotRepository
@@ -23,9 +24,12 @@ data class PilotUiState(
     val profile: PilotProfile? = null,
     val coverages: List<PilotCoverage> = emptyList(),
     val specialties: List<PilotSpecialty> = emptyList(),
+    val requests: List<PilotRequestSummary> = emptyList(),
     val experienceYears: String = "0",
     val hectaresPerHour: String = "",
     val workingHoursPerDay: String = "",
+    val availableFrom: String? = null,
+    val availableTo: String? = null,
     val selectedZones: Set<String> = emptySet(),
     val selectedSpecialties: Set<String> = emptySet(),
     val isLoading: Boolean = true,
@@ -34,6 +38,7 @@ data class PilotUiState(
     val experienceError: Boolean = false,
     val hectaresError: Boolean = false,
     val workingHoursError: Boolean = false,
+    val availabilityError: Boolean = false,
     val error: PilotFailure? = null
 )
 
@@ -68,21 +73,29 @@ class PilotViewModel(
                 combine(
                     pilotRepository.observeProfile(userId),
                     pilotRepository.observeCoverages(userId),
-                    pilotRepository.observeSpecialties(userId)
-                ) { profile, coverages, specialties -> Triple(profile, coverages, specialties) }
-                    .collect { (profile, coverages, specialties) ->
+                    pilotRepository.observeSpecialties(userId),
+                    pilotRepository.observeRequests(userId)
+                ) { profile, coverages, specialties, requests ->
+                    PilotProfileState(profile, coverages, specialties, requests)
+                }
+                    .collect { profileState ->
                         var updated = mutableState.value.copy(
-                            profile = profile, coverages = coverages, specialties = specialties,
+                            profile = profileState.profile,
+                            coverages = profileState.coverages,
+                            specialties = profileState.specialties,
+                            requests = profileState.requests,
                             isLoading = false, error = null
                         )
                         // Cargar el borrador una sola vez: las emisiones no borran lo escrito.
                         if (!draftLoaded) {
                             updated = updated.copy(
-                                experienceYears = (profile?.experienceYears ?: 0).toString(),
-                                hectaresPerHour = profile?.hectaresPerHour?.toString() ?: "",
-                                workingHoursPerDay = profile?.workingHoursPerDay?.toString() ?: "",
-                                selectedZones = coverages.map { it.zoneCode }.toSet(),
-                                selectedSpecialties = specialties.map { it.specialtyCode }.toSet()
+                                experienceYears = (profileState.profile?.experienceYears ?: 0).toString(),
+                                hectaresPerHour = profileState.profile?.hectaresPerHour?.toString() ?: "",
+                                workingHoursPerDay = profileState.profile?.workingHoursPerDay?.toString() ?: "",
+                                availableFrom = profileState.profile?.availableFrom,
+                                availableTo = profileState.profile?.availableTo,
+                                selectedZones = profileState.coverages.map { it.zoneCode }.toSet(),
+                                selectedSpecialties = profileState.specialties.map { it.specialtyCode }.toSet()
                             )
                             draftLoaded = true
                         }
@@ -97,6 +110,13 @@ class PilotViewModel(
             }
         }
     }
+
+    private data class PilotProfileState(
+        val profile: PilotProfile?,
+        val coverages: List<PilotCoverage>,
+        val specialties: List<PilotSpecialty>,
+        val requests: List<PilotRequestSummary>
+    )
 
     fun updateExperience(value: String) {
         mutableState.value = mutableState.value.copy(
@@ -113,6 +133,31 @@ class PilotViewModel(
     fun updateWorkingHours(value: String) {
         mutableState.value = mutableState.value.copy(
             workingHoursPerDay = value, workingHoursError = false, profileSaved = false
+        )
+    }
+
+    fun updateAvailableFrom(value: String?) {
+        mutableState.value = mutableState.value.copy(
+            availableFrom = value,
+            availabilityError = false,
+            profileSaved = false
+        )
+    }
+
+    fun updateAvailableTo(value: String?) {
+        mutableState.value = mutableState.value.copy(
+            availableTo = value,
+            availabilityError = false,
+            profileSaved = false
+        )
+    }
+
+    fun clearAvailability() {
+        mutableState.value = mutableState.value.copy(
+            availableFrom = null,
+            availableTo = null,
+            availabilityError = false,
+            profileSaved = false
         )
     }
 
@@ -136,6 +181,28 @@ class PilotViewModel(
         mutableState.value = mutableState.value.copy(profileSaved = false)
     }
 
+    fun acceptRequest(interestId: Long) {
+        if (mutableState.value.isWorking || userId <= 0L) return
+        val pilotId = userId
+        mutableState.value = mutableState.value.copy(isWorking = true, error = null)
+        viewModelScope.launch {
+            try {
+                val accepted = pilotRepository.acceptRequest(pilotId, interestId)
+                mutableState.value = mutableState.value.copy(
+                    isWorking = false,
+                    error = if (accepted) null else PilotFailure.REQUEST_NOT_AVAILABLE
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                mutableState.value = mutableState.value.copy(
+                    isWorking = false,
+                    error = PilotFailure.STORAGE_ERROR
+                )
+            }
+        }
+    }
+
     fun saveProfile() {
         val draft = mutableState.value
         if (draft.isLoading || draft.isWorking || !draftLoaded) return
@@ -145,11 +212,14 @@ class PilotViewModel(
         val experienceInvalid = experience == null || experience < 0
         val hectaresInvalid = hectares == null || !hectares.isFinite() || hectares <= 0
         val hoursInvalid = hours == null || !hours.isFinite() || hours <= 0
+        val availabilityInvalid = draft.availableFrom != null && draft.availableTo != null &&
+            draft.availableFrom > draft.availableTo
         mutableState.value = draft.copy(
             experienceError = experienceInvalid, hectaresError = hectaresInvalid,
-            workingHoursError = hoursInvalid, profileSaved = false, error = null
+            workingHoursError = hoursInvalid, availabilityError = availabilityInvalid,
+            profileSaved = false, error = null
         )
-        if (experienceInvalid || hectaresInvalid || hoursInvalid) return
+        if (experienceInvalid || hectaresInvalid || hoursInvalid || availabilityInvalid) return
 
         val profile = PilotProfile(
             userId = userId,
@@ -157,8 +227,8 @@ class PilotViewModel(
             experienceYears = experience,
             hectaresPerHour = hectares,
             workingHoursPerDay = hours,
-            availableFrom = null,
-            availableTo = null
+            availableFrom = draft.availableFrom,
+            availableTo = draft.availableTo
         )
         mutableState.value = mutableState.value.copy(isWorking = true)
         viewModelScope.launch {

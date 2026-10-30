@@ -70,6 +70,7 @@ object AgroMatchValidator {
         data object PilotMissing : InterestError
         data object NeedMissing : InterestError
         data object AlreadyCompleted : InterestError
+        data object InterestNotActive : InterestError
     }
 
     /**
@@ -82,8 +83,11 @@ object AgroMatchValidator {
     ): List<InterestError> = buildList {
         if (interest.pilotId <= 0L) add(InterestError.PilotMissing)
         if (interest.needId <= 0L) add(InterestError.NeedMissing)
-        if (InterestStatus.fromValue(currentStatus) == InterestStatus.COMPLETED) {
-            add(InterestError.AlreadyCompleted)
+        when (InterestStatus.fromValue(currentStatus)) {
+            InterestStatus.COMPLETED -> add(InterestError.AlreadyCompleted)
+            InterestStatus.ACTIVE -> Unit
+            InterestStatus.ACCEPTED -> Unit
+            InterestStatus.REPLACED -> add(InterestError.InterestNotActive)
         }
     }
 }

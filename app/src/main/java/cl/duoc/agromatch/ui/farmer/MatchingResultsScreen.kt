@@ -10,6 +10,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cl.duoc.agromatch.model.*
@@ -24,14 +26,7 @@ fun MatchingResultsScreen(
     onNavigateToRating: (interestId: Long, pilotAlias: String) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
-    LaunchedEffect(state.activeInterest?.status) {
-        if (state.activeInterest?.status == cl.duoc.agromatch.model.InterestStatus.COMPLETED.value) {
-            val interest = state.activeInterest!!
-            val pilotName = state.matchResults.find { it.pilot.pilotId == interest.pilotId }?.pilot?.alias ?: "el piloto"
-
-            onNavigateToRating(interest.id, pilotName) // <-- CAMBIO AQUÍ
-        }
-    }
+    var pilotToReplace by remember { mutableStateOf<MatchResult?>(null) }
 
     LaunchedEffect(need.id) {
         viewModel.selectNeedForMatching(need)
@@ -41,14 +36,16 @@ fun MatchingResultsScreen(
     var filterSpecialty by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
+        containerColor = FarmerBackground,
         topBar = {
             TopAppBar(
-                title = { Text("Pilotos Disponibles") },
+                title = { Text("Pilotos Disponibles", color = Color.White, fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = Color.White)
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = FarmerCharcoal)
             )
         }
     ) { paddingValues ->
@@ -61,7 +58,8 @@ fun MatchingResultsScreen(
             Text(
                 text = "Para: ${Catalog.cropLabel(need.cropCode)} - ${need.hectares} ha en ${Catalog.zoneLabel(need.zoneCode)}",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = FarmerCharcoal
             )
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -71,20 +69,32 @@ fun MatchingResultsScreen(
             ) {
                 FilterChip(
                     selected = filterZone != null,
-                    onClick = { filterZone = if (filterZone == null) Catalog.Zone.COLCHAGUA else null },
-                    label = { Text("Solo mi zona") }
+                    onClick = { filterZone = if (filterZone == null) need.zoneCode else null },
+                    label = { Text("Solo mi zona") },
+                    shape = RectangleShape,
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = FarmerBlue,
+                        selectedLabelColor = Color.White
+                    )
                 )
                 FilterChip(
                     selected = filterSpecialty != null,
                     onClick = { filterSpecialty = if (filterSpecialty == null) need.cropCode else null },
-                    label = { Text("Solo mi cultivo") }
+                    label = { Text("Solo mi cultivo") },
+                    shape = RectangleShape,
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = FarmerBlue,
+                        selectedLabelColor = Color.White
+                    )
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
             Button(
                 onClick = { viewModel.applyFilters(filterZone, filterSpecialty) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RectangleShape,
+                colors = ButtonDefaults.buttonColors(containerColor = FarmerBlue)
             ) {
                 Text("Aplicar Filtros")
             }
@@ -93,18 +103,121 @@ fun MatchingResultsScreen(
 
             if (state.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(color = FarmerBlue)
                 }
             } else {
+                if (state.error != null) {
+                    Text(
+                        text = state.error.orEmpty(),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+                val currentInterest = state.activeInterest
+                if (currentInterest?.status == InterestStatus.ACTIVE.value) {
+                    val selectedAlias = state.matchResults
+                        .firstOrNull { it.pilot.pilotId == currentInterest.pilotId }
+                        ?.pilot?.alias ?: "el piloto seleccionado"
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RectangleShape,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, FarmerBlue),
+                        color = FarmerBlueSoft
+                    ) {
+                        Text(
+                            text = "Interés activo con $selectedAlias. Si eliges otro piloto, cambiarás la selección.",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                } else if (currentInterest?.status == InterestStatus.ACCEPTED.value) {
+                    val acceptedPilotAlias = state.matchResults
+                        .firstOrNull { it.pilot.pilotId == currentInterest.pilotId }
+                        ?.pilot?.alias ?: "El piloto seleccionado"
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RectangleShape,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, FarmerSuccess),
+                        color = FarmerSuccessSoft
+                    ) {
+                        Text(
+                            text = "$acceptedPilotAlias aceptó la solicitud. Cuando el trabajo esté terminado, podrás marcarlo como finalizado.",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = FarmerSuccess
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                } else if (currentInterest?.status == InterestStatus.COMPLETED.value) {
+                    val completedPilotAlias = state.matchResults
+                        .firstOrNull { it.pilot.pilotId == currentInterest.pilotId }
+                        ?.pilot?.alias ?: "el piloto"
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RectangleShape,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, FarmerSuccess),
+                        color = FarmerSuccessSoft
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Servicio completado con $completedPilotAlias.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            if (state.hasRating) {
+                                Text("Ya valoraste este servicio.")
+                            } else {
+                                OutlinedButton(
+                                    onClick = { onNavigateToRating(currentInterest.id, completedPilotAlias) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RectangleShape,
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerBlue)
+                                ) {
+                                    Text("Valorar servicio")
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    if (state.filteredResults.isEmpty()) {
+                        item {
+                            Text(
+                                text = if (state.matchResults.isEmpty()) {
+                                    "Aún no hay pilotos con perfil de servicio registrado."
+                                } else {
+                                    "No hay pilotos que coincidan con estos filtros."
+                                },
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    }
                     items(state.filteredResults) { result ->
+                        val interest = state.activeInterest
+                        val isSelected = interest != null &&
+                            interest.status in setOf(InterestStatus.ACTIVE.value, InterestStatus.ACCEPTED.value) &&
+                            interest.pilotId == result.pilot.pilotId
+                        val isCompleted = interest?.status == InterestStatus.COMPLETED.value &&
+                            interest.pilotId == result.pilot.pilotId
                         MatchResultCard(
                             result = result,
-                            hasActiveInterest = state.activeInterest?.pilotId == result.pilot.pilotId,
+                            isSelected = isSelected,
+                            isCompleted = isCompleted,
+                            hasOtherActiveSelection = interest?.status == InterestStatus.ACTIVE.value && !isSelected,
+                            hasAcceptedSelection = interest?.status == InterestStatus.ACCEPTED.value,
                             onSelectPilot = {
-                                viewModel.manifestInterest(result.pilot.pilotId)
+                                if (interest?.status == InterestStatus.ACTIVE.value && !isSelected) {
+                                    pilotToReplace = result
+                                } else {
+                                    viewModel.manifestInterest(result.pilot.pilotId)
+                                }
                             },
                             onCompleteService = {
                                 viewModel.completeService()
@@ -115,12 +228,32 @@ fun MatchingResultsScreen(
             }
         }
     }
+
+    pilotToReplace?.let { result ->
+        AlertDialog(
+            onDismissRequest = { pilotToReplace = null },
+            title = { Text("Cambiar piloto seleccionado") },
+            text = { Text("El interés activo se reemplazará por una solicitud a ${result.pilot.alias}. ¿Quieres continuar?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pilotToReplace = null
+                    viewModel.manifestInterest(result.pilot.pilotId)
+                }) { Text("Cambiar piloto") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pilotToReplace = null }) { Text("Cancelar") }
+            }
+        )
+    }
 }
 
 @Composable
 private fun MatchResultCard(
     result: MatchResult,
-    hasActiveInterest: Boolean,
+    isSelected: Boolean,
+    isCompleted: Boolean,
+    hasOtherActiveSelection: Boolean,
+    hasAcceptedSelection: Boolean,
     onSelectPilot: () -> Unit,
     onCompleteService: () -> Unit
 ) {
@@ -133,9 +266,10 @@ private fun MatchResultCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        border = androidx.compose.foundation.BorderStroke(2.dp, borderColor)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -161,7 +295,11 @@ private fun MatchResultCard(
                 text = when (result.compatibility) {
                     MatchResult.Compatibility.FULL -> "[OK] Coincide en zona, cultivo y tiene capacidad."
                     MatchResult.Compatibility.PARTIAL -> "[Alerta] Coincide, pero la capacidad o fechas no son suficientes."
-                    MatchResult.Compatibility.UNKNOWN -> "[Duda] Faltan datos para confirmar compatibilidad."
+                    MatchResult.Compatibility.UNKNOWN -> if (!result.availabilityKnown) {
+                        "[Duda] El piloto aún no informó su disponibilidad."
+                    } else {
+                        "[Duda] Faltan datos para confirmar compatibilidad."
+                    }
                     MatchResult.Compatibility.INCOMPATIBLE -> "[X] No cubre la zona o el cultivo."
                 },
                 color = borderColor,
@@ -172,28 +310,49 @@ private fun MatchResultCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = "Capacidad: ${result.pilot.hectaresPerHour} ha/h - ${result.pilot.workingHoursPerDay} h/dia")
             Text(text = "Requerido: ${String.format("%.1f", result.requiredHours)} horas de vuelo estimadas.")
+            if (!result.availabilityKnown) {
+                Text("Disponibilidad: por confirmar")
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Botón para manifestar interés
-                Button(
-                    onClick = onSelectPilot,
-                    enabled = !hasActiveInterest && result.compatibility != MatchResult.Compatibility.INCOMPATIBLE,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (hasActiveInterest) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+                if (isCompleted) {
+                    Text(
+                        text = "Servicio completado",
+                        color = MaterialTheme.colorScheme.secondary,
+                        fontWeight = FontWeight.Bold
                     )
-                ) {
-                    Text(if (hasActiveInterest) "Piloto Seleccionado" else "Manifestar Interés")
+                } else {
+                    Button(
+                        onClick = onSelectPilot,
+                        enabled = !isSelected && !hasAcceptedSelection && result.compatibility != MatchResult.Compatibility.INCOMPATIBLE,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RectangleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = when {
+                                isSelected && hasAcceptedSelection -> FarmerSuccess
+                                isSelected -> FarmerCharcoal
+                                else -> FarmerBlue
+                            }
+                        )
+                    ) {
+                        Text(when {
+                            isSelected && hasAcceptedSelection -> "Solicitud aceptada"
+                            isSelected -> "Piloto seleccionado"
+                            hasOtherActiveSelection -> "Cambiar piloto"
+                            else -> "Manifestar interés"
+                        })
+                    }
                 }
 
-                // Botón para finalizar (Solo aparece si este es el piloto seleccionado)
-                if (hasActiveInterest) {
+                if (isSelected) {
                     OutlinedButton(
                         onClick = onCompleteService,
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF4CAF50))
+                        shape = RectangleShape,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerSuccess)
                     ) {
                         Text("Marcar servicio como finalizado")
                     }

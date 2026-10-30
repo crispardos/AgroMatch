@@ -13,6 +13,7 @@ data class MatchResult(
     val specialtyMatches: Boolean,
     val hasCapacity: Boolean,
     val hasAvailability: Boolean,
+    val availabilityKnown: Boolean,
 
     // Datos calculados
     val requiredHours: Double,
