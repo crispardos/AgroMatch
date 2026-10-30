@@ -2,6 +2,7 @@ package cl.duoc.agromatch.ui.pilot
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,6 +43,7 @@ fun PilotHomeScreen(
     alias: String,
     state: PilotUiState,
     onEditProfile: () -> Unit,
+    onOpenRequest: (Long) -> Unit,
     onRetry: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -179,7 +181,9 @@ fun PilotHomeScreen(
                             } else {
                                 state.requests.forEach { request ->
                                     Surface(
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier.fillMaxWidth().clickable(enabled = !state.isWorking) {
+                                            onOpenRequest(request.interestId)
+                                        },
                                         shape = RectangleShape,
                                         color = PilotBackground,
                                         border = BorderStroke(1.dp, PilotBorder)
@@ -205,6 +209,28 @@ fun PilotHomeScreen(
                                                 formatEpochDay(request.startEpochDay),
                                                 formatEpochDay(request.endEpochDay)
                                             ), style = MaterialTheme.typography.bodySmall)
+                                            Text(
+                                                stringResource(
+                                                    if (request.status == cl.duoc.agromatch.model.InterestStatus.ACCEPTED.value) {
+                                                        R.string.pilot_request_accepted
+                                                    } else {
+                                                        R.string.pilot_request_pending
+                                                    }
+                                                ),
+                                                color = if (request.status == cl.duoc.agromatch.model.InterestStatus.ACCEPTED.value) {
+                                                    PilotSuccess
+                                                } else {
+                                                    PilotBlue
+                                                },
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            Text(
+                                                stringResource(R.string.pilot_request_open),
+                                                color = PilotBlue,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
                                         }
                                     }
                                 }
@@ -226,6 +252,7 @@ internal fun pilotErrorText(error: PilotFailure): String = stringResource(
         PilotFailure.INVALID_PROFILE -> R.string.pilot_error_invalid
         PilotFailure.USER_NOT_FOUND, PilotFailure.USER_NOT_PILOT,
         PilotFailure.SESSION_REQUIRED -> R.string.pilot_error_session
+        PilotFailure.REQUEST_NOT_AVAILABLE -> R.string.pilot_request_unavailable
         PilotFailure.STORAGE_ERROR -> R.string.pilot_error_storage
     }
 )

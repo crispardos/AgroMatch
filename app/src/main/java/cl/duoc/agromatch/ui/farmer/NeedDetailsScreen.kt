@@ -7,6 +7,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
@@ -32,6 +37,8 @@ import cl.duoc.agromatch.database.FarmerNeedOverview
 import cl.duoc.agromatch.model.Catalog
 import cl.duoc.agromatch.model.InterestStatus
 import cl.duoc.agromatch.ui.formatEpochDay
+import android.net.Uri
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +51,7 @@ fun NeedDetailsScreen(
     val isCompleted = overview.interestStatus == InterestStatus.COMPLETED.value
     val statusLabel = when (overview.interestStatus) {
         InterestStatus.ACTIVE.value -> "Solicitud enviada"
+        InterestStatus.ACCEPTED.value -> "Piloto aceptó"
         InterestStatus.COMPLETED.value -> "Completada"
         else -> "Sin piloto seleccionado"
     }
@@ -65,7 +73,7 @@ fun NeedDetailsScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(20.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
@@ -84,6 +92,20 @@ fun NeedDetailsScreen(
             Text("Zona: ${Catalog.zoneLabel(need.zoneCode)}")
             Text("Superficie: ${need.hectares} ha")
             Text("Fechas: ${formatEpochDay(need.startEpochDay)} al ${formatEpochDay(need.endEpochDay)}")
+
+            val photoPaths = overview.photoPaths.orEmpty().split('|').filter(String::isNotBlank)
+            if (photoPaths.isNotEmpty()) {
+                Text("Fotos del terreno", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    itemsIndexed(photoPaths) { index, path ->
+                        NeedPhotoThumbnail(
+                            uri = Uri.fromFile(File(path)),
+                            contentDescription = "Foto del terreno ${index + 1}",
+                            modifier = Modifier.size(width = 192.dp, height = 132.dp)
+                        )
+                    }
+                }
+            }
 
             Spacer(Modifier.height(4.dp))
             Surface(

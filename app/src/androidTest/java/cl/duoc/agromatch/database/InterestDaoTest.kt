@@ -8,6 +8,7 @@ import cl.duoc.agromatch.model.Catalog
 import cl.duoc.agromatch.model.Interest
 import cl.duoc.agromatch.model.InterestStatus
 import cl.duoc.agromatch.model.Need
+import cl.duoc.agromatch.model.NeedPhoto
 import cl.duoc.agromatch.model.Rating
 import cl.duoc.agromatch.model.User
 import cl.duoc.agromatch.model.UserRole
@@ -60,6 +61,12 @@ class InterestDaoTest {
                 endEpochDay = 20_002L
             )
         )
+        database.needPhotoDao().insertAll(
+            listOf(
+                NeedPhoto(needId = needId, filePath = "/local/need_photos/$needId/photo-1.jpg", sortOrder = 0),
+                NeedPhoto(needId = needId, filePath = "/local/need_photos/$needId/photo-2.jpg", sortOrder = 1)
+            )
+        )
         val dao = database.interestDao()
 
         dao.replaceActiveInterest(Interest(needId = needId, pilotId = firstPilotId, createdEpochDay = 20_000L))
@@ -92,5 +99,9 @@ class InterestDaoTest {
         assertEquals("Piloto Uno", overview.pilotAlias)
         assertEquals(5, overview.ratingScore)
         assertEquals("Buen servicio", overview.ratingComment)
+        assertEquals(
+            "/local/need_photos/$needId/photo-1.jpg|/local/need_photos/$needId/photo-2.jpg",
+            overview.photoPaths
+        )
     }
 }

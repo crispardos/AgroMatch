@@ -181,6 +181,28 @@ class PilotViewModel(
         mutableState.value = mutableState.value.copy(profileSaved = false)
     }
 
+    fun acceptRequest(interestId: Long) {
+        if (mutableState.value.isWorking || userId <= 0L) return
+        val pilotId = userId
+        mutableState.value = mutableState.value.copy(isWorking = true, error = null)
+        viewModelScope.launch {
+            try {
+                val accepted = pilotRepository.acceptRequest(pilotId, interestId)
+                mutableState.value = mutableState.value.copy(
+                    isWorking = false,
+                    error = if (accepted) null else PilotFailure.REQUEST_NOT_AVAILABLE
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                mutableState.value = mutableState.value.copy(
+                    isWorking = false,
+                    error = PilotFailure.STORAGE_ERROR
+                )
+            }
+        }
+    }
+
     fun saveProfile() {
         val draft = mutableState.value
         if (draft.isLoading || draft.isWorking || !draftLoaded) return

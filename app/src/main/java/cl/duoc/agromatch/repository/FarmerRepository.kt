@@ -1,5 +1,8 @@
 package cl.duoc.agromatch.repository
 
+import android.net.Uri
+import androidx.room.withTransaction
+import cl.duoc.agromatch.database.AgroMatchDatabase
 import cl.duoc.agromatch.database.InterestDao
 import cl.duoc.agromatch.database.FarmerNeedOverview
 import cl.duoc.agromatch.database.NeedDao
@@ -7,6 +10,7 @@ import cl.duoc.agromatch.database.PilotCoverageDao
 import cl.duoc.agromatch.database.PilotProfileDao
 import cl.duoc.agromatch.database.PilotSpecialtyDao
 import cl.duoc.agromatch.database.RatingDao
+import cl.duoc.agromatch.database.NeedPhotoDao
 import cl.duoc.agromatch.model.*
 import kotlinx.coroutines.flow.Flow
 import java.text.ParsePosition
@@ -20,7 +24,10 @@ class FarmerRepository(
     private val ratingDao: RatingDao,
     private val pilotProfileDao: PilotProfileDao,
     private val pilotCoverageDao: PilotCoverageDao,
-    private val pilotSpecialtyDao: PilotSpecialtyDao
+    private val pilotSpecialtyDao: PilotSpecialtyDao,
+    private val database: AgroMatchDatabase,
+    private val needPhotoDao: NeedPhotoDao,
+    private val photoStorage: NeedPhotoStorage
 ) {
 
     // --- NECESIDADES ---
@@ -37,12 +44,29 @@ class FarmerRepository(
         return needDao.findById(needId)
     }
 
-    suspend fun createNeed(need: Need): Long {
+    suspend fun createNeed(need: Need, photoUris: List<Uri> = emptyList()): Long {
         val errors = AgroMatchValidator.validateNeed(need)
         if (errors.isNotEmpty()) {
             throw IllegalArgumentException("Necesidad inválida: $errors")
         }
-        return needDao.insert(need)
+        require(photoUris.size <= MAX_PHOTOS_PER_NEED) { "Puedes adjuntar hasta $MAX_PHOTOS_PER_NEED fotos por terreno." }
+
+        val copiedPhotoPaths = mutableListOf<String>()
+        return try {
+            database.withTransaction {
+                val needId = needDao.insert(need)
+                val photos = photoUris.mapIndexed { index, uri ->
+                    val file = photoStorage.copyIntoNeed(uri, needId)
+                    copiedPhotoPaths += file.absolutePath
+                    NeedPhoto(needId = needId, filePath = file.absolutePath, sortOrder = index)
+                }
+                if (photos.isNotEmpty()) needPhotoDao.insertAll(photos)
+                needId
+            }
+        } catch (exception: Exception) {
+            copiedPhotoPaths.forEach(photoStorage::delete)
+            throw exception
+        }
     }
 
     // --- MATCHING Y PILOTOS ---

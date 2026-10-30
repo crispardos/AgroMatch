@@ -7,6 +7,7 @@ import androidx.room.PrimaryKey
 
 enum class InterestStatus(val value: String) {
     ACTIVE("ACTIVE"),
+    ACCEPTED("ACCEPTED"),
     REPLACED("REPLACED"),
     COMPLETED("COMPLETED");
 

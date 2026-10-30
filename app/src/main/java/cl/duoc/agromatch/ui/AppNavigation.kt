@@ -34,6 +34,8 @@ import cl.duoc.agromatch.ui.auth.LoginScreen
 import cl.duoc.agromatch.ui.auth.RegisterScreen
 import cl.duoc.agromatch.ui.pilot.PilotHomeScreen
 import cl.duoc.agromatch.ui.pilot.PilotProfileScreen
+import cl.duoc.agromatch.ui.pilot.PilotRequestDetailsScreen
+import cl.duoc.agromatch.ui.pilot.pilotErrorText
 import cl.duoc.agromatch.viewmodel.AgroMatchViewModelFactory
 import cl.duoc.agromatch.viewmodel.AuthViewModel
 import cl.duoc.agromatch.viewmodel.FarmerViewModel
@@ -117,8 +119,8 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                     error = farmerState.error,
                     onClearError = farmerViewModel::clearError,
                     onNavigateBack = { navController.popBackStack() },
-                    onSave = { need ->
-                        farmerViewModel.createNeed(need) { navController.popBackStack() }
+                    onSave = { need, photoUris ->
+                        farmerViewModel.createNeed(need, photoUris) { navController.popBackStack() }
                     }
                 )
             }
@@ -214,6 +216,9 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                         authViewModel.clearError()
                         navController.navigate(PILOT_PROFILE_ROUTE)
                     },
+                    onOpenRequest = { interestId ->
+                        navController.navigate("$PILOT_REQUEST_ROUTE/$interestId")
+                    },
                     onRetry = pilotViewModel::loadProfile,
                     onLogout = authViewModel::logout
                 )
@@ -241,6 +246,33 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                     onSave = pilotViewModel::saveProfile,
                     onBack = { navController.popBackStack() }
                 )
+            }
+        }
+        composable(
+            route = "$PILOT_REQUEST_ROUTE/{interestId}",
+            arguments = listOf(
+                androidx.navigation.navArgument("interestId") { type = androidx.navigation.NavType.LongType }
+            )
+        ) { entry ->
+            if (state.user?.role == UserRole.PILOT.value) {
+                val interestId = entry.arguments?.getLong("interestId") ?: 0L
+                val homeEntry = remember(entry) { navController.getBackStackEntry(PILOT_HOME_ROUTE) }
+                val pilotViewModel: PilotViewModel = viewModel(homeEntry, factory = factory)
+                val pilotState by pilotViewModel.state.collectAsStateWithLifecycle()
+                val request = pilotState.requests.firstOrNull { it.interestId == interestId }
+                val requestError = pilotState.error?.let { pilotErrorText(it) }
+
+                when {
+                    request != null -> PilotRequestDetailsScreen(
+                        request = request,
+                        isWorking = pilotState.isWorking,
+                        errorMessage = requestError,
+                        onNavigateBack = { navController.popBackStack() },
+                        onAcceptRequest = { pilotViewModel.acceptRequest(interestId) }
+                    )
+                    pilotState.isLoading -> LoadingScreen()
+                    else -> Text("No se encontró la solicitud.")
+                }
             }
         }
         composable(ADMIN_HOME_ROUTE) {
@@ -301,6 +333,7 @@ private const val REGISTER_ROUTE = "register"
 private const val FARMER_HOME_ROUTE = "farmer-home"
 private const val PILOT_HOME_ROUTE = "pilot-home"
 private const val PILOT_PROFILE_ROUTE = "pilot-profile"
+private const val PILOT_REQUEST_ROUTE = "pilot-request"
 private const val ADMIN_HOME_ROUTE = "admin-home"
 private const val NEED_FORM_ROUTE = "need-form"
 private const val NEED_DETAILS_ROUTE = "need-details"

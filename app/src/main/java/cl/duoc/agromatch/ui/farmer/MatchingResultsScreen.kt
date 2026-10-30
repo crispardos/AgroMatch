@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cl.duoc.agromatch.model.*
@@ -130,6 +131,24 @@ fun MatchingResultsScreen(
                         )
                     }
                     Spacer(modifier = Modifier.height(12.dp))
+                } else if (currentInterest?.status == InterestStatus.ACCEPTED.value) {
+                    val acceptedPilotAlias = state.matchResults
+                        .firstOrNull { it.pilot.pilotId == currentInterest.pilotId }
+                        ?.pilot?.alias ?: "El piloto seleccionado"
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RectangleShape,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, FarmerSuccess),
+                        color = FarmerSuccessSoft
+                    ) {
+                        Text(
+                            text = "$acceptedPilotAlias aceptó la solicitud. Cuando el trabajo esté terminado, podrás marcarlo como finalizado.",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = FarmerSuccess
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
                 } else if (currentInterest?.status == InterestStatus.COMPLETED.value) {
                     val completedPilotAlias = state.matchResults
                         .firstOrNull { it.pilot.pilotId == currentInterest.pilotId }
@@ -182,7 +201,8 @@ fun MatchingResultsScreen(
                     }
                     items(state.filteredResults) { result ->
                         val interest = state.activeInterest
-                        val isSelected = interest?.status == InterestStatus.ACTIVE.value &&
+                        val isSelected = interest != null &&
+                            interest.status in setOf(InterestStatus.ACTIVE.value, InterestStatus.ACCEPTED.value) &&
                             interest.pilotId == result.pilot.pilotId
                         val isCompleted = interest?.status == InterestStatus.COMPLETED.value &&
                             interest.pilotId == result.pilot.pilotId
@@ -191,6 +211,7 @@ fun MatchingResultsScreen(
                             isSelected = isSelected,
                             isCompleted = isCompleted,
                             hasOtherActiveSelection = interest?.status == InterestStatus.ACTIVE.value && !isSelected,
+                            hasAcceptedSelection = interest?.status == InterestStatus.ACCEPTED.value,
                             onSelectPilot = {
                                 if (interest?.status == InterestStatus.ACTIVE.value && !isSelected) {
                                     pilotToReplace = result
@@ -232,6 +253,7 @@ private fun MatchResultCard(
     isSelected: Boolean,
     isCompleted: Boolean,
     hasOtherActiveSelection: Boolean,
+    hasAcceptedSelection: Boolean,
     onSelectPilot: () -> Unit,
     onCompleteService: () -> Unit
 ) {
@@ -305,14 +327,19 @@ private fun MatchResultCard(
                 } else {
                     Button(
                         onClick = onSelectPilot,
-                        enabled = !isSelected && result.compatibility != MatchResult.Compatibility.INCOMPATIBLE,
+                        enabled = !isSelected && !hasAcceptedSelection && result.compatibility != MatchResult.Compatibility.INCOMPATIBLE,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RectangleShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isSelected) FarmerCharcoal else FarmerBlue
+                            containerColor = when {
+                                isSelected && hasAcceptedSelection -> FarmerSuccess
+                                isSelected -> FarmerCharcoal
+                                else -> FarmerBlue
+                            }
                         )
                     ) {
                         Text(when {
+                            isSelected && hasAcceptedSelection -> "Solicitud aceptada"
                             isSelected -> "Piloto seleccionado"
                             hasOtherActiveSelection -> "Cambiar piloto"
                             else -> "Manifestar interés"

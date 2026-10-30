@@ -13,7 +13,8 @@ data class FarmerNeedOverview(
     val interestStatus: String?,
     val pilotAlias: String?,
     val ratingScore: Int?,
-    val ratingComment: String?
+    val ratingComment: String?,
+    val photoPaths: String?
 )
 
 @Dao
@@ -36,7 +37,8 @@ interface NeedDao {
             interests.status AS interestStatus,
             pilot.alias AS pilotAlias,
             ratings.score AS ratingScore,
-            ratings.comment AS ratingComment
+            ratings.comment AS ratingComment,
+            (SELECT GROUP_CONCAT(filePath, '|') FROM need_photos WHERE needId = needs.id) AS photoPaths
         FROM needs
         LEFT JOIN interests ON interests.id = (
             SELECT MAX(id) FROM interests WHERE needId = needs.id

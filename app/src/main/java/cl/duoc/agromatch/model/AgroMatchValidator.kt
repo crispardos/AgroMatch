@@ -86,6 +86,7 @@ object AgroMatchValidator {
         when (InterestStatus.fromValue(currentStatus)) {
             InterestStatus.COMPLETED -> add(InterestError.AlreadyCompleted)
             InterestStatus.ACTIVE -> Unit
+            InterestStatus.ACCEPTED -> Unit
             InterestStatus.REPLACED -> add(InterestError.InterestNotActive)
         }
     }

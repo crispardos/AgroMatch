@@ -13,6 +13,7 @@ import cl.duoc.agromatch.model.Catalog
 import cl.duoc.agromatch.model.PilotCoverage
 import cl.duoc.agromatch.model.PilotProfile
 import cl.duoc.agromatch.model.PilotSpecialty
+import cl.duoc.agromatch.model.InterestStatus
 import cl.duoc.agromatch.model.UserRole
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -32,6 +33,7 @@ enum class PilotFailure {
     USER_NOT_FOUND,
     USER_NOT_PILOT,
     SESSION_REQUIRED,
+    REQUEST_NOT_AVAILABLE,
     STORAGE_ERROR
 }
 
@@ -64,6 +66,19 @@ class PilotRepository(
 
     fun observeRequests(pilotId: Long): Flow<List<PilotRequestSummary>> =
         interestDao.observeRequestsForPilot(pilotId)
+
+    suspend fun acceptRequest(pilotId: Long, interestId: Long): Boolean {
+        val currentUser = authRepository.restoreSession() ?: return false
+        if (currentUser.id != pilotId || currentUser.role != UserRole.PILOT.value) return false
+        return database.withTransaction {
+            interestDao.acceptPendingRequest(
+                interestId = interestId,
+                pilotId = pilotId,
+                pendingStatus = InterestStatus.ACTIVE.value,
+                acceptedStatus = InterestStatus.ACCEPTED.value
+            ) == 1
+        }
+    }
 
     suspend fun saveProfile(
         profile: PilotProfile,

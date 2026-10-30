@@ -1,5 +1,6 @@
 package cl.duoc.agromatch.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cl.duoc.agromatch.database.FarmerNeedOverview
@@ -52,11 +53,11 @@ class FarmerViewModel(
         }
     }
 
-    fun createNeed(need: Need, onSaved: () -> Unit) {
+    fun createNeed(need: Need, photoUris: List<Uri>, onSaved: () -> Unit) {
         viewModelScope.launch {
             mutableState.value = mutableState.value.copy(isLoading = true, error = null)
             try {
-                repository.createNeed(need)
+                repository.createNeed(need, photoUris)
                 mutableState.value = mutableState.value.copy(isLoading = false)
                 onSaved()
             } catch (e: Exception) {

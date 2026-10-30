@@ -195,6 +195,7 @@ private fun NeedRow(
     val isCompleted = overview.interestStatus == InterestStatus.COMPLETED.value
     val statusLabel = when (overview.interestStatus) {
         InterestStatus.ACTIVE.value -> "Solicitud enviada"
+        InterestStatus.ACCEPTED.value -> "Piloto aceptó"
         InterestStatus.COMPLETED.value -> "Completada"
         else -> "Sin piloto seleccionado"
     }
