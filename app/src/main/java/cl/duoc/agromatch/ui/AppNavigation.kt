@@ -117,6 +117,7 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                     farmerId = user.id,
                     isSaving = farmerState.isLoading,
                     error = farmerState.error,
+                    viewModel = farmerViewModel,
                     onClearError = farmerViewModel::clearError,
                     onNavigateBack = { navController.popBackStack() },
                     onSave = { need, photoUris ->
