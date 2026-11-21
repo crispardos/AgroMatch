@@ -23,4 +23,10 @@ interface ApiService {
 
     @GET("status")
     suspend fun checkStatus(): String
+
+    @POST("auth/signup")
+    suspend fun signup(@Body request: AuthRequest): AuthResponse
+
+    @POST("auth/login")
+    suspend fun login(@Body request: AuthRequest): AuthResponse
 }

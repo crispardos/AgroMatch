@@ -134,7 +134,6 @@ fun FarmerHomeScreen(
                 color = FarmerCharcoal.copy(alpha = 0.68f)
             )
             Spacer(Modifier.height(16.dp))
-            CloudSyncCard(farmerId = farmerId.toInt())
             if (state.error != null) {
                 Text(
                     text = state.error.orEmpty(),

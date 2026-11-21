@@ -3,6 +3,7 @@ package cl.duoc.agromatch.repository
 import android.content.Context
 import android.content.SharedPreferences
 import android.database.sqlite.SQLiteConstraintException
+import android.util.Log.e
 import cl.duoc.agromatch.database.DemoDataSeeder
 import cl.duoc.agromatch.database.PilotDemoSeeder
 import cl.duoc.agromatch.database.UserDao
@@ -10,6 +11,8 @@ import cl.duoc.agromatch.model.User
 import cl.duoc.agromatch.model.UserRole
 import kotlinx.coroutines.CancellationException
 import java.util.Locale
+import cl.duoc.agromatch.remote.AuthRequest
+import cl.duoc.agromatch.remote.RetrofitInstance
 
 sealed interface AuthResult {
     data class Success(val user: User) : AuthResult
@@ -45,28 +48,29 @@ class AuthRepository(
             return AuthResult.Failure(AuthFailure.INVALID_FIELDS)
         }
 
-        val aliasKey = normalizeAlias(alias)
-        if (userDao.findByAliasKey(aliasKey) != null) {
-            return AuthResult.Failure(AuthFailure.ALIAS_ALREADY_EXISTS)
-        }
-
         return try {
+            val request = AuthRequest(alias = alias, password = password, role = role.value)
+            val xanoResponse = RetrofitInstance.api.signup(request)
+
+            val responseAlias = xanoResponse.user.alias ?: alias
+            val responseRole = xanoResponse.user.role ?: role.value
             val credentials = passwordHasher.createCredentials(password)
             val draft = User(
-                alias = alias,
-                aliasKey = aliasKey,
-                role = role.value,
+                alias = responseAlias,
+                aliasKey = normalizeAlias(responseAlias),
+                role = responseRole,
                 passwordHash = credentials.hash,
                 passwordSalt = credentials.salt
             )
             val user = draft.copy(id = userDao.insert(draft))
+
             saveSession(user.id)
+
             AuthResult.Success(user)
         } catch (_: SQLiteConstraintException) {
             AuthResult.Failure(AuthFailure.ALIAS_ALREADY_EXISTS)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            e.printStackTrace()
             AuthResult.Failure(AuthFailure.STORAGE_ERROR)
         }
     }
@@ -78,19 +82,32 @@ class AuthRepository(
         }
 
         return try {
-            val user = userDao.findByAliasKey(normalizeAlias(alias))
-                ?: return AuthResult.Failure(AuthFailure.INVALID_CREDENTIALS)
-            val credentials = PasswordCredentials(user.passwordHash, user.passwordSalt)
-            if (!passwordHasher.verify(password, credentials)) {
-                AuthResult.Failure(AuthFailure.INVALID_CREDENTIALS)
+            val request = AuthRequest(alias = alias, password = password, role = "")
+            val xanoResponse = RetrofitInstance.api.login(request)
+
+            val responseAlias = xanoResponse.user.alias ?: alias
+            val responseRole = xanoResponse.user.role ?: UserRole.FARMER.value
+
+            val existingUser = userDao.findByAliasKey(normalizeAlias(responseAlias))
+            val user = if (existingUser != null) {
+                existingUser
             } else {
-                saveSession(user.id)
-                AuthResult.Success(user)
+                val credentials = passwordHasher.createCredentials(password)
+                val draft = User(
+                    alias = responseAlias,
+                    aliasKey = normalizeAlias(responseAlias),
+                    role = responseRole,
+                    passwordHash = credentials.hash,
+                    passwordSalt = credentials.salt
+                )
+                draft.copy(id = userDao.insert(draft))
             }
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (_: Exception) {
-            AuthResult.Failure(AuthFailure.STORAGE_ERROR)
+
+            saveSession(user.id)
+            AuthResult.Success(user)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            AuthResult.Failure(AuthFailure.INVALID_CREDENTIALS)
         }
     }
 
