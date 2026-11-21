@@ -96,6 +96,8 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
 
                 cl.duoc.agromatch.ui.farmer.FarmerHomeScreen(
                     viewModel = farmerViewModel,
+                    farmerId = user.id,
+                    onNavigateToApiTest = { navController.navigate(API_TEST_ROUTE) },
                     onNavigateToCreateNeed = { navController.navigate(NEED_FORM_ROUTE) },
                     onNavigateToMatching = { need ->
                         navController.navigate("$MATCHING_ROUTE/${need.id}")
@@ -279,6 +281,11 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
         composable(ADMIN_HOME_ROUTE) {
             state.user?.let { user -> RoleHomeScreen(user, authViewModel::logout) }
         }
+        composable(API_TEST_ROUTE) {
+            cl.duoc.agromatch.ui.remote.ApiTestScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
     }
 }
 
@@ -340,3 +347,5 @@ private const val NEED_FORM_ROUTE = "need-form"
 private const val NEED_DETAILS_ROUTE = "need-details"
 private const val MATCHING_ROUTE = "matching"
 private const val RATING_ROUTE = "rating/{interestId}/{pilotAlias}"
+
+private const val API_TEST_ROUTE = "api-test"
