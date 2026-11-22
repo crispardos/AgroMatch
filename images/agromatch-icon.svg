@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Icono de AgroMatch</title>
+  <desc id="desc">Un dron vuela sobre surcos de cultivo y una espiga de trigo.</desc>
+
+  <defs>
+    <clipPath id="field-clip">
+      <rect width="512" height="512" rx="112"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#field-clip)">
+    <rect width="512" height="512" fill="#174C35"/>
+    <circle cx="256" cy="208" r="178" fill="#1D6042"/>
+
+    <!-- Surcos que se abren hacia el campo -->
+    <g fill="none" stroke="#6FA66B" stroke-linecap="round" stroke-width="9" opacity=".82">
+      <path d="M-12 512C82 433 154 393 224 368"/>
+      <path d="M74 530C143 446 194 402 239 373"/>
+      <path d="M438 530C369 446 318 402 273 373"/>
+      <path d="M524 512C430 433 358 393 288 368"/>
+    </g>
+
+    <!-- Brazos del dron -->
+    <g fill="none" stroke="#F7F5E9" stroke-linecap="round" stroke-width="12">
+      <path d="M239 190 174 150"/>
+      <path d="m273 190 65-40"/>
+      <path d="m239 208-65 40"/>
+      <path d="m273 208 65 40"/>
+    </g>
+
+    <!-- Hélices -->
+    <g fill="#174C35" stroke="#F7F5E9" stroke-width="10">
+      <circle cx="151" cy="136" r="29"/>
+      <circle cx="361" cy="136" r="29"/>
+      <circle cx="151" cy="262" r="29"/>
+      <circle cx="361" cy="262" r="29"/>
+    </g>
+    <g fill="#F2C14E">
+      <circle cx="151" cy="136" r="7"/>
+      <circle cx="361" cy="136" r="7"/>
+      <circle cx="151" cy="262" r="7"/>
+      <circle cx="361" cy="262" r="7"/>
+    </g>
+
+    <!-- Cuerpo y cámara -->
+    <path d="M224 177Q256 157 288 177L280 221Q256 238 232 221Z" fill="#F7F5E9"/>
+    <circle cx="256" cy="199" r="10" fill="#174C35"/>
+    <circle cx="256" cy="199" r="4" fill="#F2C14E"/>
+
+    <!-- Espiga de trigo -->
+    <g fill="#F2C14E" stroke="#F2C14E" stroke-linecap="round">
+      <path d="M258 416Q261 370 258 316" fill="none" stroke-width="7"/>
+      <ellipse cx="245" cy="329" rx="7" ry="15" transform="rotate(-38 245 329)"/>
+      <ellipse cx="271" cy="340" rx="7" ry="15" transform="rotate(38 271 340)"/>
+      <ellipse cx="244" cy="352" rx="7" ry="15" transform="rotate(-38 244 352)"/>
+      <ellipse cx="272" cy="364" rx="7" ry="15" transform="rotate(38 272 364)"/>
+      <ellipse cx="248" cy="376" rx="7" ry="14" transform="rotate(-34 248 376)"/>
+      <path d="m258 318-10-18m11 18 10-18" fill="none" stroke-width="5"/>
+    </g>
+    <path d="M258 390q-18-7-24-20m24 32q17-7 23-20" fill="none" stroke="#F2C14E" stroke-linecap="round" stroke-width="6"/>
+  </g>
+</svg>

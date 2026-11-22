@@ -5,6 +5,7 @@ import cl.duoc.agromatch.database.AgroMatchDatabase
 import cl.duoc.agromatch.database.PilotCoverageDao
 import cl.duoc.agromatch.database.PilotDirectoryEntry
 import cl.duoc.agromatch.database.InterestDao
+import cl.duoc.agromatch.database.NeedDao
 import cl.duoc.agromatch.database.PilotRequestSummary
 import cl.duoc.agromatch.database.PilotProfileDao
 import cl.duoc.agromatch.database.PilotSpecialtyDao
@@ -14,7 +15,9 @@ import cl.duoc.agromatch.model.PilotCoverage
 import cl.duoc.agromatch.model.PilotProfile
 import cl.duoc.agromatch.model.PilotSpecialty
 import cl.duoc.agromatch.model.InterestStatus
+import cl.duoc.agromatch.model.Need
 import cl.duoc.agromatch.model.UserRole
+import cl.duoc.agromatch.remote.RetrofitInstance
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import java.text.ParsePosition
@@ -44,6 +47,7 @@ class PilotRepository(
     private val pilotCoverageDao: PilotCoverageDao,
     private val pilotSpecialtyDao: PilotSpecialtyDao,
     private val interestDao: InterestDao,
+    private val needDao: NeedDao,
     private val authRepository: AuthRepository
 ) {
     fun observeDirectory(): Flow<List<PilotDirectoryEntry>> =
@@ -67,10 +71,10 @@ class PilotRepository(
     fun observeRequests(pilotId: Long): Flow<List<PilotRequestSummary>> =
         interestDao.observeRequestsForPilot(pilotId)
 
-    suspend fun acceptRequest(pilotId: Long, interestId: Long): Boolean {
+    suspend fun acceptRequest(pilotId: Long, needId: Long, interestId: Long): Boolean {
         val currentUser = authRepository.restoreSession() ?: return false
         if (currentUser.id != pilotId || currentUser.role != UserRole.PILOT.value) return false
-        return database.withTransaction {
+        val success = database.withTransaction {
             interestDao.acceptPendingRequest(
                 interestId = interestId,
                 pilotId = pilotId,
@@ -78,6 +82,18 @@ class PilotRepository(
                 acceptedStatus = InterestStatus.ACCEPTED.value
             ) == 1
         }
+
+        if (success) {
+            try {
+                val payload = mapOf("needId" to needId.toInt())
+                val response = RetrofitInstance.api.acceptNeedInXano(payload)
+                println("Xano response: $response")
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        return success
     }
 
     suspend fun saveProfile(
@@ -119,6 +135,29 @@ class PilotRepository(
             throw cancelled
         } catch (_: Exception) {
             PilotSaveResult.Failure(PilotFailure.STORAGE_ERROR)
+        }
+    }
+
+    suspend fun syncNeedsFromXano() {
+        try {
+            val remoteNeeds = RetrofitInstance.api.getNeedsCustom()
+
+            val localNeeds = remoteNeeds.map { remote ->
+                Need(
+                    id = remote.id.toLong(),
+                    farmerId = remote.farmerId.toLong(),
+                    serviceType = "FUMIGATION",
+                    cropCode = remote.cropCode,
+                    zoneCode = remote.zoneCode,
+                    hectares = remote.hectares,
+                    startEpochDay = remote.startEpochDay,
+                    endEpochDay = remote.endEpochDay
+                )
+            }
+
+            needDao.insertAll(localNeeds)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

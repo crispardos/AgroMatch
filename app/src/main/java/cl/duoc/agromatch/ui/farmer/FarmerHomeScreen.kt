@@ -52,6 +52,8 @@ import cl.duoc.agromatch.viewmodel.FarmerViewModel
 @Composable
 fun FarmerHomeScreen(
     viewModel: FarmerViewModel,
+    farmerId: Long,
+    onNavigateToApiTest: () -> Unit,
     onNavigateToCreateNeed: () -> Unit,
     onNavigateToMatching: (Need) -> Unit,
     onNavigateToNeedDetails: (Long) -> Unit,
@@ -71,6 +73,13 @@ fun FarmerHomeScreen(
                     )
                 },
                 actions = {
+                    TextButton(
+                        onClick = onNavigateToApiTest, // <--- El parámetro nuevo
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+                    ) {
+                        Text("APIs")
+                    }
+
                     TextButton(
                         onClick = onLogout,
                         colors = ButtonDefaults.textButtonColors(contentColor = Color.White)

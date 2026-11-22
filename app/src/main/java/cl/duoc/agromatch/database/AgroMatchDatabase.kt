@@ -15,7 +15,6 @@ import cl.duoc.agromatch.model.PilotCoverage
 import cl.duoc.agromatch.model.PilotSpecialty
 import cl.duoc.agromatch.model.NeedPhoto
 import androidx.room.AutoMigration
-
 @Database(
     entities = [
         User::class,
@@ -27,7 +26,7 @@ import androidx.room.AutoMigration
         Rating::class,
         NeedPhoto::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -56,7 +55,7 @@ abstract class AgroMatchDatabase : RoomDatabase() {
                     context.applicationContext,
                     AgroMatchDatabase::class.java,
                     DATABASE_NAME
-                ).addMigrations(MIGRATION_3_4, MIGRATION_4_5).build().also { instance = it }
+                ).addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build().also { instance = it }
             }
 
         private val MIGRATION_3_4 = object : Migration(3, 4) {
@@ -77,6 +76,12 @@ abstract class AgroMatchDatabase : RoomDatabase() {
                     )"""
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_need_photos_needId` ON `need_photos` (`needId`)")
+            }
+        }
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE needs ADD COLUMN latitude REAL")
+                db.execSQL("ALTER TABLE needs ADD COLUMN longitude REAL")
             }
         }
     }

@@ -26,5 +26,7 @@ data class Need(
     val zoneCode: String,
     val hectares: Double,
     val startEpochDay: Long,
-    val endEpochDay: Long
+    val endEpochDay: Long,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )

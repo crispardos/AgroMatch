@@ -181,13 +181,14 @@ class PilotViewModel(
         mutableState.value = mutableState.value.copy(profileSaved = false)
     }
 
-    fun acceptRequest(interestId: Long) {
+    fun acceptRequest(needId: Long, interestId: Long) {
         if (mutableState.value.isWorking || userId <= 0L) return
         val pilotId = userId
         mutableState.value = mutableState.value.copy(isWorking = true, error = null)
+
         viewModelScope.launch {
             try {
-                val accepted = pilotRepository.acceptRequest(pilotId, interestId)
+                val accepted = pilotRepository.acceptRequest(pilotId, needId, interestId)
                 mutableState.value = mutableState.value.copy(
                     isWorking = false,
                     error = if (accepted) null else PilotFailure.REQUEST_NOT_AVAILABLE

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import cl.duoc.agromatch.utils.LocationHelper
 
 data class FarmerUiState(
     val needs: List<Need> = emptyList(),
@@ -26,7 +27,8 @@ data class FarmerUiState(
 
 class FarmerViewModel(
     private val repository: FarmerRepository,
-    private val farmerId: Long
+    private val farmerId: Long,
+    private val locationHelper: LocationHelper
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(FarmerUiState())
@@ -157,5 +159,17 @@ class FarmerViewModel(
     }
     fun clearError() {
         mutableState.value = mutableState.value.copy(error = null)
+    }
+    fun fetchLocation(onLocationReceived: (Double, Double) -> Unit) {
+        viewModelScope.launch {
+            mutableState.value = mutableState.value.copy(isLoading = true, error = null)
+            val coords = locationHelper.getCurrentLocation()
+            if (coords != null) {
+                mutableState.value = mutableState.value.copy(isLoading = false)
+                onLocationReceived(coords.first, coords.second)
+            } else {
+                mutableState.value = mutableState.value.copy(isLoading = false, error = "No se pudo obtener la ubicación")
+            }
+        }
     }
 }

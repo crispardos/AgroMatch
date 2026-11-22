@@ -1,6 +1,12 @@
 package cl.duoc.agromatch.ui.farmer
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,13 +17,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,16 +34,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cl.duoc.agromatch.database.FarmerNeedOverview
 import cl.duoc.agromatch.model.Catalog
 import cl.duoc.agromatch.model.InterestStatus
 import cl.duoc.agromatch.ui.formatEpochDay
-import android.net.Uri
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,6 +54,7 @@ fun NeedDetailsScreen(
     onNavigateBack: () -> Unit,
     onFindAnotherPilot: () -> Unit
 ) {
+    val context = LocalContext.current
     val need = overview.need
     val isCompleted = overview.interestStatus == InterestStatus.COMPLETED.value
     val statusLabel = when (overview.interestStatus) {
@@ -73,7 +81,11 @@ fun NeedDetailsScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
@@ -93,19 +105,49 @@ fun NeedDetailsScreen(
             Text("Superficie: ${need.hectares} ha")
             Text("Fechas: ${formatEpochDay(need.startEpochDay)} al ${formatEpochDay(need.endEpochDay)}")
 
+            // --- FOTOS CON EL BOTÓN DE MAPA ---
             val photoPaths = overview.photoPaths.orEmpty().split('|').filter(String::isNotBlank)
             if (photoPaths.isNotEmpty()) {
                 Text("Fotos del terreno", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     itemsIndexed(photoPaths) { index, path ->
-                        NeedPhotoThumbnail(
-                            uri = Uri.fromFile(File(path)),
-                            contentDescription = "Foto del terreno ${index + 1}",
-                            modifier = Modifier.size(width = 192.dp, height = 132.dp)
-                        )
+                        // ENVOLVEMOS LA FOTO EN UN BOX
+                        Box(modifier = Modifier.size(width = 192.dp, height = 132.dp)) {
+                            NeedPhotoThumbnail(
+                                uri = Uri.fromFile(File(path)),
+                                contentDescription = "Foto del terreno ${index + 1}",
+                                modifier = Modifier.fillMaxSize()
+                            )
+
+                            // BOTÓN DE MAPA SOBRE LA FOTO
+                            if (need.latitude != null && need.longitude != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(4.dp)
+                                        .background(color = Color.Black.copy(alpha = 0.6f), shape = RoundedCornerShape(4.dp))
+                                        .clickable {
+                                            val uri = Uri.parse("geo:${need.latitude},${need.longitude}?q=${need.latitude},${need.longitude}(Terreno)")
+                                            val intent = Intent(Intent.ACTION_VIEW, uri)
+                                            intent.setPackage("com.google.android.apps.maps")
+                                            context.startActivity(intent)
+                                        }
+                                        .padding(4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocationOn,
+                                        contentDescription = "Ver ubicación",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
+            // ----------------------------------
 
             Spacer(Modifier.height(4.dp))
             Surface(

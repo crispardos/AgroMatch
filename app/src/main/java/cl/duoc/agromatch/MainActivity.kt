@@ -20,7 +20,8 @@ class MainActivity : ComponentActivity() {
         val factory = AgroMatchViewModelFactory(
             container.authRepository,
             container.farmerRepository,
-            container.pilotRepository
+            container.pilotRepository,
+            context = applicationContext
         )
         val authViewModel = ViewModelProvider(
             this,

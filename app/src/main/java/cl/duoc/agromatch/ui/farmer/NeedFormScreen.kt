@@ -1,7 +1,9 @@
 package cl.duoc.agromatch.ui.farmer
 
+import android.Manifest
 import android.app.DatePickerDialog
 import android.content.ActivityNotFoundException
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -17,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import cl.duoc.agromatch.R
 import cl.duoc.agromatch.model.Catalog
@@ -35,6 +39,7 @@ import cl.duoc.agromatch.model.Need
 import cl.duoc.agromatch.model.AgroMatchValidator
 import cl.duoc.agromatch.ui.epochDayFromPickerDate
 import cl.duoc.agromatch.ui.formatEpochDay
+import cl.duoc.agromatch.viewmodel.FarmerViewModel
 import java.util.Calendar
 import java.util.TimeZone
 import java.io.File
@@ -45,6 +50,7 @@ fun NeedFormScreen(
     farmerId: Long,
     isSaving: Boolean,
     error: String?,
+    viewModel: FarmerViewModel, // <--- AGREGADO
     onClearError: () -> Unit,
     onNavigateBack: () -> Unit,
     onSave: (Need, List<Uri>) -> Unit
@@ -65,7 +71,28 @@ fun NeedFormScreen(
     var pendingCameraFile by remember { mutableStateOf<File?>(null) }
     var photoError by remember { mutableStateOf<String?>(null) }
 
+    // --- NUEVOS ESTADOS PARA UBICACIÓN ---
+    var latitude by remember { mutableStateOf<Double?>(null) }
+    var longitude by remember { mutableStateOf<Double?>(null) }
+    var locationError by remember { mutableStateOf<String?>(null) }
+
     val context = LocalContext.current
+
+    // --- LANZADOR DE PERMISOS DE UBICACIÓN ---
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true) {
+            viewModel.fetchLocation { lat, lon ->
+                latitude = lat
+                longitude = lon
+                locationError = null
+            }
+        } else {
+            locationError = "Permiso de ubicación denegado"
+        }
+    }
+
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(MAX_PHOTOS_PER_NEED)
     ) { selectedUris ->
@@ -255,6 +282,31 @@ fun NeedFormScreen(
                 }
             }
 
+            // --- BOTÓN DE UBICACIÓN ---
+            OutlinedButton(
+                onClick = {
+                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                        viewModel.fetchLocation { lat, lon ->
+                            latitude = lat
+                            longitude = lon
+                            locationError = null
+                        }
+                    } else {
+                        locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION))
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RectangleShape,
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = FarmerBlue)
+            ) {
+                Icon(Icons.Default.LocationOn, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (latitude != null) "Ubicación capturada" else "Adjuntar ubicación GPS")
+            }
+
+            locationError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+
+            // Fotos
             Text(
                 text = stringResource(R.string.need_photos_count, selectedPhotoUris.size, MAX_PHOTOS_PER_NEED),
                 style = MaterialTheme.typography.titleSmall,
@@ -339,7 +391,9 @@ fun NeedFormScreen(
                         zoneCode = selectedZone,
                         hectares = hectares,
                         startEpochDay = startDay,
-                        endEpochDay = endDay
+                        endEpochDay = endDay,
+                        latitude = latitude,
+                        longitude = longitude
                     )
 
                     val errors = AgroMatchValidator.validateNeed(newNeed)
