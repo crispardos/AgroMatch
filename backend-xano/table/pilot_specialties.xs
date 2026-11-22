@@ -5,14 +5,14 @@ table "pilot_specialties" {
     int id
     int pilotId {
       table = "pilot_profiles"
+      description = "Internal profile ID (pilot_profiles.id), not the pilot's user ID."
     }
-    text specialtyCode filters=trim
+    text specialtyCode
   }
 
   index = [
     {type: "primary", field: [{name: "id"}]}
     {type: "btree|unique", field: [{name: "pilotId"}, {name: "specialtyCode"}]}
-    {type: "btree", field: [{name: "specialtyCode"}]}
   ]
   guid = "MXeHro8uMHc8o9XWfM6HQooHfTM"
 }

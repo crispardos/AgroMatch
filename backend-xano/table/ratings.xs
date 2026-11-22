@@ -3,15 +3,14 @@ table "ratings" {
 
   schema {
     int id
+    // In Room this reference cascades when the interest is deleted.
     int interestId {
       table = "interests"
     }
-    int score filters=min:1|max:5
-    text? comment? filters=trim|max:300
-    enum origin?="farmer_to_pilot" {
-      values = ["farmer_to_pilot"]
-    }
-    int createdEpochDay filters=min:0
+    int score
+    text? comment?
+    int createdEpochDay
+    text origin
   }
 
   index = [

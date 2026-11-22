@@ -3,29 +3,23 @@ table "interests" {
 
   schema {
     int id
+    // In Room both references cascade when their parent is deleted.
     int needId {
       table = "needs"
     }
     int pilotId {
       table = "users"
+      description = "The assigned pilot's user ID (users.id), not the profile ID."
     }
-    enum status?="ACTIVE" {
-      values = ["ACTIVE", "ACCEPTED", "REPLACED", "COMPLETED"]
-    }
-    int createdEpochDay filters=min:0
-    int? acceptedEpochDay? filters=min:0
-    int? completedEpochDay? filters=min:0
-    // The server sets this to needId for ACTIVE and ACCEPTED, and to null otherwise.
-    int? activeNeedId? {
-      table = "needs"
-    }
+    text status
+    int createdEpochDay
+    int? completedEpochDay?
   }
 
   index = [
     {type: "primary", field: [{name: "id"}]}
-    {type: "btree|unique", field: [{name: "activeNeedId"}]}
-    {type: "btree", field: [{name: "needId"}, {name: "createdEpochDay", op: "desc"}]}
-    {type: "btree", field: [{name: "pilotId"}, {name: "status"}]}
+    {type: "btree", field: [{name: "needId"}]}
+    {type: "btree", field: [{name: "pilotId"}]}
   ]
   guid = "vQZyeYheinmzLMIUi7uBxcQnfFg"
 }

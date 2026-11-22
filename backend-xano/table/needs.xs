@@ -3,21 +3,21 @@ table "needs" {
 
   schema {
     int id
+    // In Room this reference cascades when the farmer is deleted.
     int farmerId {
       table = "users"
     }
-    text serviceType?="FUMIGATION" filters=trim
-    text cropCode filters=trim
-    text zoneCode filters=trim
-    decimal hectares filters=min:0
-    int startEpochDay filters=min:0
-    int endEpochDay filters=min:0
-    int createdEpochDay filters=min:0
+    text serviceType
+    text cropCode
+    text zoneCode
+    decimal hectares
+    int startEpochDay
+    int endEpochDay
   }
 
   index = [
     {type: "primary", field: [{name: "id"}]}
-    {type: "btree", field: [{name: "farmerId"}, {name: "startEpochDay", op: "desc"}]}
+    {type: "btree", field: [{name: "farmerId"}]}
   ]
   guid = "bBQgtUbpONF1qg_AmHmbq2bk0ss"
 }

@@ -2,22 +2,23 @@ table "pilot_profiles" {
   auth = false
 
   schema {
+    // Xano's profile ID is independent from the user's ID.
     int id
     int userId {
       table = "users"
+      description = "The pilot's user ID. Unique so each user has at most one profile."
     }
-    text serviceCode?="FUMIGATION" filters=trim
-    int? experienceYears? filters=min:0
-    decimal? hectaresPerHour? filters=min:0
-    decimal? workingHoursPerDay? filters=min:0
-    date? availableFrom?
-    date? availableTo?
+    text serviceCode
+    int? experienceYears?
+    decimal hectaresPerHour
+    decimal workingHoursPerDay
+    text? availableFrom?
+    text? availableTo?
   }
 
   index = [
     {type: "primary", field: [{name: "id"}]}
     {type: "btree|unique", field: [{name: "userId"}]}
-    {type: "btree", field: [{name: "serviceCode"}]}
   ]
   guid = "Rt-nzTy34pO13yY5ukvbLh5KU0o"
 }

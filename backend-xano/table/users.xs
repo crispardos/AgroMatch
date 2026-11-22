@@ -3,19 +3,18 @@ table "users" {
 
   schema {
     int id
-    timestamp createdAt?=now
-    text alias filters=trim|lower|min:3|max:40
-    enum role {
-      values = ["farmer", "pilot"]
-    }
-    password password filters=min:8|max:128|minUpperAlpha:1|minLowerAlpha:1|minDigit:1 {
+    text alias
+    text aliasKey
+    text role
+    // Xano native authentication replaces the local passwordHash and passwordSalt.
+    password password {
       sensitive = true
     }
   }
 
   index = [
     {type: "primary", field: [{name: "id"}]}
-    {type: "btree|unique", field: [{name: "alias"}]}
+    {type: "btree|unique", field: [{name: "aliasKey"}]}
   ]
   guid = "YmfkCJLzNeTbHkDQ-ebzzsEmDho"
 }
