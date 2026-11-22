@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Update
 import cl.duoc.agromatch.model.Need
 import kotlinx.coroutines.flow.Flow
+import androidx.room.OnConflictStrategy
 
 data class FarmerNeedOverview(
     @Embedded val need: Need,
@@ -17,8 +18,12 @@ data class FarmerNeedOverview(
     val photoPaths: String?
 )
 
+
 @Dao
 interface NeedDao {
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(needs: List<Need>)
 
     @Insert
     suspend fun insert(need: Need): Long

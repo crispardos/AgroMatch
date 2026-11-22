@@ -271,10 +271,10 @@ fun AgroMatchApp(authViewModel: AuthViewModel, factory: AgroMatchViewModelFactor
                         isWorking = pilotState.isWorking,
                         errorMessage = requestError,
                         onNavigateBack = { navController.popBackStack() },
-                        onAcceptRequest = { pilotViewModel.acceptRequest(interestId) }
+                        onAcceptRequest = {
+                            pilotViewModel.acceptRequest(request.needId, request.interestId)
+                        }
                     )
-                    pilotState.isLoading -> LoadingScreen()
-                    else -> Text("No se encontró la solicitud.")
                 }
             }
         }

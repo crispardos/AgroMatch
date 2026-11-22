@@ -12,6 +12,8 @@ import cl.duoc.agromatch.database.PilotSpecialtyDao
 import cl.duoc.agromatch.database.RatingDao
 import cl.duoc.agromatch.database.NeedPhotoDao
 import cl.duoc.agromatch.model.*
+import cl.duoc.agromatch.remote.NeedRemote
+import cl.duoc.agromatch.remote.RetrofitInstance
 import kotlinx.coroutines.flow.Flow
 import java.text.ParsePosition
 import java.text.SimpleDateFormat
@@ -52,21 +54,40 @@ class FarmerRepository(
         require(photoUris.size <= MAX_PHOTOS_PER_NEED) { "Puedes adjuntar hasta $MAX_PHOTOS_PER_NEED fotos por terreno." }
 
         val copiedPhotoPaths = mutableListOf<String>()
-        return try {
+
+        var finalNeed = need
+        try {
+            val remoteNeed = NeedRemote(
+                farmerId = need.farmerId.toInt(),
+                cropCode = need.cropCode,
+                zoneCode = need.zoneCode,
+                hectares = need.hectares,
+                startEpochDay = need.startEpochDay,
+                endEpochDay = need.endEpochDay
+            )
+            val xanoResponse = RetrofitInstance.api.createNeedCustom(remoteNeed)
+            finalNeed = need.copy(id = xanoResponse.id.toLong())
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        val needId = try {
             database.withTransaction {
-                val needId = needDao.insert(need)
+                val id = needDao.insert(finalNeed)
                 val photos = photoUris.mapIndexed { index, uri ->
-                    val file = photoStorage.copyIntoNeed(uri, needId)
+                    val file = photoStorage.copyIntoNeed(uri, id)
                     copiedPhotoPaths += file.absolutePath
-                    NeedPhoto(needId = needId, filePath = file.absolutePath, sortOrder = index)
+                    NeedPhoto(needId = id, filePath = file.absolutePath, sortOrder = index)
                 }
                 if (photos.isNotEmpty()) needPhotoDao.insertAll(photos)
-                needId
+                id
             }
         } catch (exception: Exception) {
             copiedPhotoPaths.forEach(photoStorage::delete)
             throw exception
         }
+
+        return needId
     }
 
     // --- MATCHING Y PILOTOS ---
